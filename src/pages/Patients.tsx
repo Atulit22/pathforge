@@ -3,10 +3,11 @@ import { Plus, Search, Users, X } from "lucide-react";
 import { usePatients, type Patient } from "../store/PatientContext";
 
 export default function Patients() {
-  const { patients, addPatient } = usePatients();
+  const { patients, addPatient, loading } = usePatients();
 
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -32,7 +33,9 @@ export default function Patients() {
     }));
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     if (
@@ -41,6 +44,7 @@ export default function Patients() {
       !formData.gender ||
       !formData.patientId.trim()
     ) {
+      alert("Please fill in all fields.");
       return;
     }
 
@@ -52,19 +56,33 @@ export default function Patients() {
       patientId: formData.patientId.trim(),
     };
 
-    addPatient(newPatient);
+    try {
+      setIsSaving(true);
 
-    setFormData({
-      name: "",
-      age: "",
-      gender: "",
-      patientId: "",
-    });
+      await addPatient(newPatient);
 
-    setIsModalOpen(false);
+      setFormData({
+        name: "",
+        age: "",
+        gender: "",
+        patientId: "",
+      });
+
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Failed to save patient:", error);
+
+      alert(
+        `Failed to save patient. Check the console for details.`
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function closeModal() {
+    if (isSaving) return;
+
     setIsModalOpen(false);
 
     setFormData({
@@ -102,7 +120,12 @@ export default function Patients() {
         <div className="patients-card-header">
           <div>
             <h3>Patients</h3>
-            <p>{filteredPatients.length} patient records</p>
+
+            <p>
+              {loading
+                ? "Loading patients..."
+                : `${filteredPatients.length} patient records`}
+            </p>
           </div>
         </div>
 
@@ -114,7 +137,11 @@ export default function Patients() {
             <span>Gender</span>
           </div>
 
-          {filteredPatients.length > 0 ? (
+          {loading ? (
+            <div className="no-results">
+              <p>Loading patients...</p>
+            </div>
+          ) : filteredPatients.length > 0 ? (
             filteredPatients.map((patient) => (
               <div className="table-row" key={patient.id}>
                 <div className="patient-name">
@@ -134,7 +161,7 @@ export default function Patients() {
             <div className="no-results">
               <Users size={35} />
               <h3>No patients found</h3>
-              <p>Try changing your search.</p>
+              <p>Add your first patient record.</p>
             </div>
           )}
         </div>
@@ -159,6 +186,7 @@ export default function Patients() {
                 type="button"
                 className="close-button"
                 onClick={closeModal}
+                disabled={isSaving}
               >
                 <X size={20} />
               </button>
@@ -175,6 +203,7 @@ export default function Patients() {
                     placeholder="Enter patient's full name"
                     value={formData.name}
                     onChange={handleChange}
+                    disabled={isSaving}
                   />
                 </div>
 
@@ -187,6 +216,7 @@ export default function Patients() {
                     placeholder="e.g. PF-1003"
                     value={formData.patientId}
                     onChange={handleChange}
+                    disabled={isSaving}
                   />
                 </div>
 
@@ -200,6 +230,7 @@ export default function Patients() {
                     min="0"
                     value={formData.age}
                     onChange={handleChange}
+                    disabled={isSaving}
                   />
                 </div>
 
@@ -210,6 +241,7 @@ export default function Patients() {
                     name="gender"
                     value={formData.gender}
                     onChange={handleChange}
+                    disabled={isSaving}
                   >
                     <option value="">Select gender</option>
                     <option value="Female">Female</option>
@@ -224,13 +256,21 @@ export default function Patients() {
                   type="button"
                   className="secondary-button"
                   onClick={closeModal}
+                  disabled={isSaving}
                 >
                   Cancel
                 </button>
 
-                <button type="submit" className="primary-button">
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={isSaving}
+                >
                   <Plus size={18} />
-                  Save Patient
+
+                  {isSaving
+                    ? "Saving..."
+                    : "Save Patient"}
                 </button>
               </div>
             </form>

@@ -1,12 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "description": "Default capabilities for PathForge",
+  "windows": ["main"],
   "permissions": [
     "core:default",
-    "sql:default"
+    "sql:default",
+    "sql:allow-execute"
   ]
 }

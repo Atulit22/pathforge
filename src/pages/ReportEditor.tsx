@@ -6,6 +6,7 @@ import {
   GitBranchPlus,
   Lock,
 } from "lucide-react";
+
 import { useReports } from "../store/ReportContext";
 import { usePatients } from "../store/PatientContext";
 
@@ -15,17 +16,12 @@ interface ReportEditorProps {
   onOpenReport: (reportId: string) => void;
 }
 
-export default function ReportEditor({
+function ReportEditor({
   reportId,
   onBack,
   onOpenReport,
 }: ReportEditorProps) {
-  const {
-    getReport,
-    updateReport,
-    createAmendment,
-  } = useReports();
-
+  const { getReport, updateReport, createAmendment } = useReports();
   const { patients } = usePatients();
 
   const foundReport = getReport(reportId);
@@ -38,14 +34,14 @@ export default function ReportEditor({
   });
 
   useEffect(() => {
-    if (foundReport) {
-      setFormData({
-        specimenType: foundReport.specimenType,
-        clinicalHistory: foundReport.clinicalHistory,
-        findings: foundReport.findings,
-        diagnosis: foundReport.diagnosis,
-      });
-    }
+    if (!foundReport) return;
+
+    setFormData({
+      specimenType: foundReport.specimenType ?? "",
+      clinicalHistory: foundReport.clinicalHistory ?? "",
+      findings: foundReport.findings ?? "",
+      diagnosis: foundReport.diagnosis ?? "",
+    });
   }, [foundReport]);
 
   if (!foundReport) {
@@ -63,7 +59,6 @@ export default function ReportEditor({
     );
   }
 
-  // After the check above, TypeScript knows this is definitely a Report
   const report = foundReport;
 
   const patient = patients.find(
@@ -120,13 +115,16 @@ export default function ReportEditor({
 
     const amendment = createAmendment(report.id);
 
-    if (amendment) {
-      alert(
-        `Version ${amendment.version} created as a draft amendment.`
-      );
-
-      onOpenReport(amendment.id);
+    if (!amendment) {
+      alert("Could not create amendment.");
+      return;
     }
+
+    alert(
+      `Version ${amendment.version} created as a draft amendment.`
+    );
+
+    onOpenReport(amendment.id);
   }
 
   return (
@@ -207,7 +205,6 @@ export default function ReportEditor({
           isFinalized ? "read-only" : ""
         }`}
       >
-        {/* Specimen Details */}
         <div className="editor-section">
           <div className="editor-section-title">
             <FileText size={19} />
@@ -231,7 +228,6 @@ export default function ReportEditor({
           </div>
         </div>
 
-        {/* Clinical History */}
         <div className="editor-section">
           <div className="editor-section-title">
             <FileText size={19} />
@@ -242,18 +238,15 @@ export default function ReportEditor({
             </div>
           </div>
 
-          <div className="form-group">
-            <textarea
-              name="clinicalHistory"
-              value={formData.clinicalHistory}
-              onChange={handleChange}
-              rows={4}
-              disabled={isFinalized}
-            />
-          </div>
+          <textarea
+            name="clinicalHistory"
+            value={formData.clinicalHistory}
+            onChange={handleChange}
+            rows={4}
+            disabled={isFinalized}
+          />
         </div>
 
-        {/* Findings */}
         <div className="editor-section">
           <div className="editor-section-title">
             <FileText size={19} />
@@ -264,18 +257,15 @@ export default function ReportEditor({
             </div>
           </div>
 
-          <div className="form-group">
-            <textarea
-              name="findings"
-              value={formData.findings}
-              onChange={handleChange}
-              rows={7}
-              disabled={isFinalized}
-            />
-          </div>
+          <textarea
+            name="findings"
+            value={formData.findings}
+            onChange={handleChange}
+            rows={7}
+            disabled={isFinalized}
+          />
         </div>
 
-        {/* Diagnosis */}
         <div className="editor-section">
           <div className="editor-section-title">
             <FileText size={19} />
@@ -286,17 +276,17 @@ export default function ReportEditor({
             </div>
           </div>
 
-          <div className="form-group">
-            <textarea
-              name="diagnosis"
-              value={formData.diagnosis}
-              onChange={handleChange}
-              rows={5}
-              disabled={isFinalized}
-            />
-          </div>
+          <textarea
+            name="diagnosis"
+            value={formData.diagnosis}
+            onChange={handleChange}
+            rows={5}
+            disabled={isFinalized}
+          />
         </div>
       </div>
     </div>
   );
 }
+
+export default ReportEditor;
