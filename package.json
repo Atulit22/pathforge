@@ -5,6 +5,8 @@
   "description": "Small clinical-pathology report preview and PDF-printing prototype",
   "type": "module",
   "scripts": {
+    "dev": "vite",
+    "tauri": "tauri",
     "start": "node scripts/report-app.mjs",
     "report": "node scripts/report-app.mjs",
     "dashboard": "node scripts/task-dashboard.mjs",
@@ -17,7 +19,7 @@
     "tasks:check": "node scripts/task-dashboard.mjs --check",
     "test": "npm run test:unit",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test:unit && npm run fixtures:check && npm run tasks:check",
-    "build": "npm run typecheck"
+    "build": "vite build"
   },
   "engines": {
     "node": "24.20.0",
@@ -26,7 +28,21 @@
   "packageManager": "npm@11.19.0",
   "devDependencies": {
     "@biomejs/biome": "2.5.12",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/node": "24.13.3",
-    "typescript": "7.0.2"
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "7.0.2",
+    "vite": "^8.2.2"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-sql": "^2.4.1",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^1.42.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "sweetalert2": "^11.26.25"
   }
 }

@@ -5,8 +5,6 @@ import {
   type ReactNode,
 } from "react";
 
-// IMPORTANT: ReportContext.tsx is inside src/store
-// so ../ goes back to src, then enters domain
 import { validateReport } from "../domain/validation";
 
 import type {
@@ -14,14 +12,42 @@ import type {
   ValidationResult,
 } from "../domain/types";
 
+export interface ReferenceRange {
+  min?: number;
+  max?: number;
+  text?: string;
+}
+
+export interface TestResult {
+  parameterId: string;
+  parameterName: string;
+
+  // Always stored as a string, even if the parameter has no unit
+  unit: string;
+
+  referenceRange?: ReferenceRange;
+
+  // Value entered by employee
+  value: string;
+}
+
 export interface Report {
   id: string;
+
   patientId: string;
 
   specimenType: string;
   clinicalHistory: string;
   findings: string;
   diagnosis: string;
+
+  // Selected laboratory test
+  testId?: string;
+  testName?: string;
+  department?: string;
+
+  // Results entered for the selected test
+  testResults: TestResult[];
 
   status: "draft" | "finalized";
 
@@ -96,7 +122,9 @@ export function ReportProvider({
     );
   }
 
-  function getReport(id: string) {
+  function getReport(
+    id: string
+  ): Report | undefined {
     return reports.find(
       (report) => report.id === id
     );
@@ -158,22 +186,44 @@ export function ReportProvider({
 
       patientId: originalReport.patientId,
 
-      specimenType: originalReport.specimenType,
+      specimenType:
+        originalReport.specimenType,
 
       clinicalHistory:
         originalReport.clinicalHistory,
 
-      findings: originalReport.findings,
+      findings:
+        originalReport.findings,
 
-      diagnosis: originalReport.diagnosis,
+      diagnosis:
+        originalReport.diagnosis,
+
+      testId:
+        originalReport.testId,
+
+      testName:
+        originalReport.testName,
+
+      department:
+        originalReport.department,
+
+      testResults:
+        originalReport.testResults.map(
+          (result) => ({
+            ...result,
+          })
+        ),
 
       status: "draft",
 
-      version: originalReport.version + 1,
+      version:
+        originalReport.version + 1,
 
-      createdAt: new Date().toISOString(),
+      createdAt:
+        new Date().toISOString(),
 
-      supersedesReportId: originalReport.id,
+      supersedesReportId:
+        originalReport.id,
     };
 
     setReports((previous) => [
@@ -200,10 +250,13 @@ export function ReportProvider({
     while (rootReport.supersedesReportId) {
       const parent = reports.find(
         (report) =>
-          report.id === rootReport.supersedesReportId
+          report.id ===
+          rootReport.supersedesReportId
       );
 
-      if (!parent) break;
+      if (!parent) {
+        break;
+      }
 
       rootReport = parent;
     }
@@ -214,7 +267,8 @@ export function ReportProvider({
       parentId: string
     ) {
       const current = reports.find(
-        (report) => report.id === parentId
+        (report) =>
+          report.id === parentId
       );
 
       if (current) {
@@ -223,7 +277,8 @@ export function ReportProvider({
 
       const children = reports.filter(
         (report) =>
-          report.supersedesReportId === parentId
+          report.supersedesReportId ===
+          parentId
       );
 
       children.forEach((child) => {
@@ -234,7 +289,8 @@ export function ReportProvider({
     collectVersion(rootReport.id);
 
     return versions.sort(
-      (a, b) => a.version - b.version
+      (a, b) =>
+        a.version - b.version
     );
   }
 
@@ -256,7 +312,9 @@ export function ReportProvider({
 }
 
 export function useReports() {
-  const context = useContext(ReportContext);
+  const context = useContext(
+    ReportContext
+  );
 
   if (!context) {
     throw new Error(

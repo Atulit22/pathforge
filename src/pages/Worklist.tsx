@@ -10,7 +10,7 @@ import { useReports } from "../store/ReportContext";
 import { usePatients } from "../store/PatientContext";
 
 interface WorklistProps {
-  onSelectReport: (reportId: string) => void;
+  onSelectReport?: (reportId: string) => void;
 }
 
 export default function Worklist({
@@ -83,7 +83,7 @@ export default function Worklist({
                 type="button"
                 className="worklist-row"
                 key={report.id}
-                onClick={() => onSelectReport(report.id)}
+                onClick={() => onSelectReport?.(report.id)}
               >
                 <div className="report-patient">
                   <div className="report-avatar">

@@ -1,114 +1,232 @@
 import { useState } from "react";
-import Sidebar, { type Page } from "./components/layout/Sidebar";
+
+import Sidebar, {
+  type Page,
+} from "./components/layout/Sidebar";
+
 import Header from "./components/layout/Header";
 
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
-import NewReport from "./pages/NewReport";
 import Worklist from "./pages/Worklist";
-import ReportEditor from "./pages/ReportEditor";
+import NewReport from "./pages/NewReport";
 import VersionHistory from "./pages/VersionHistory";
+import TestManagement from "./pages/TestManagement";
+import ReportEditor from "./pages/ReportEditor";
+import LoginPage from "./pages/LoginPage";
 
-const pageDetails: Record<Page, { title: string; subtitle: string }> = {
-  dashboard: {
-    title: "Dashboard",
-    subtitle: "Overview of your pathology workspace",
-  },
-  patients: {
-    title: "Patients",
-    subtitle: "Manage patient records",
-  },
-  worklist: {
-    title: "Report Worklist",
-    subtitle: "View and manage active reports",
-  },
-  "new-report": {
-    title: "New Report",
-    subtitle: "Create a new pathology report",
-  },
-  history: {
-    title: "Version History",
-    subtitle: "Review report versions and amendments",
-  },
-  settings: {
-    title: "Settings",
-    subtitle: "Configure your PathForge workspace",
-  },
-};
+import { useAuth } from "./store/AuthContext";
 
 function App() {
-  const [activePage, setActivePage] = useState<Page>("dashboard");
+  // ========================================
+  // AUTHENTICATION
+  // ========================================
 
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(
-    null
-  );
+  const { isLoggedIn } = useAuth();
 
-  const currentPage = pageDetails[activePage];
+  // ========================================
+  // APP NAVIGATION STATE
+  // ========================================
 
-  function openReport(reportId: string) {
-    setSelectedReportId(reportId);
-    setActivePage("worklist");
+  const [activePage, setActivePage] =
+    useState<Page>("dashboard");
+
+  const [selectedReportId, setSelectedReportId] =
+    useState<string | null>(null);
+
+  // ========================================
+  // LOGIN SCREEN
+  // ========================================
+
+  if (!isLoggedIn) {
+    return <LoginPage />;
   }
 
-  function goBackToWorklist() {
+  // ========================================
+  // NAVIGATION
+  // ========================================
+
+  function handleNavigate(page: Page) {
     setSelectedReportId(null);
-    setActivePage("worklist");
-  }
-
-  function handleNavigation(page: Page) {
     setActivePage(page);
-    setSelectedReportId(null);
   }
+
+  // ========================================
+  // REPORT SELECTION
+  // ========================================
+
+  function handleSelectReport(reportId: string) {
+    setSelectedReportId(reportId);
+  }
+
+  // ========================================
+  // PAGE INFORMATION
+  // ========================================
+
+  function getPageInfo() {
+    switch (activePage) {
+      case "dashboard":
+        return {
+          title: "Dashboard",
+          subtitle:
+            "Overview of your pathology workspace",
+        };
+
+      case "patients":
+        return {
+          title: "Patients",
+          subtitle:
+            "Manage patient records",
+        };
+
+      case "worklist":
+        return {
+          title: "Report Worklist",
+          subtitle:
+            "View and manage active reports",
+        };
+
+      case "new-report":
+        return {
+          title: "New Report",
+          subtitle:
+            "Create a new pathology report",
+        };
+
+      case "history":
+        return {
+          title: "Version History",
+          subtitle:
+            "Track report versions and amendments",
+        };
+
+      case "test-management":
+        return {
+          title: "Test Management",
+          subtitle:
+            "Manage laboratory tests and parameters",
+        };
+
+      case "settings":
+        return {
+          title: "Settings",
+          subtitle:
+            "Configure your PathForge workspace",
+        };
+
+      default:
+        return {
+          title: "PathForge",
+          subtitle:
+            "Clinical Pathology Workspace",
+        };
+    }
+  }
+
+  // ========================================
+  // PAGE RENDERING
+  // ========================================
+
+  function renderPage() {
+    // Open Report Editor when a report is selected
+    if (selectedReportId) {
+      return (
+        <ReportEditor
+          reportId={selectedReportId}
+          onBack={() => {
+            setSelectedReportId(null);
+            setActivePage("worklist");
+          }}
+          onOpenReport={(reportId) => {
+            setSelectedReportId(reportId);
+          }}
+        />
+      );
+    }
+
+    switch (activePage) {
+      case "dashboard":
+        return (
+          <Dashboard
+            onNavigate={handleNavigate}
+          />
+        );
+
+      case "patients":
+        return <Patients />;
+
+      case "worklist":
+        return (
+          <Worklist
+            onSelectReport={handleSelectReport}
+          />
+        );
+
+      case "new-report":
+        return <NewReport />;
+
+      case "history":
+        return (
+          <VersionHistory
+            onSelectReport={handleSelectReport}
+          />
+        );
+
+      case "test-management":
+        return <TestManagement />;
+
+      case "settings":
+        return (
+          <div className="page-placeholder">
+            <h2>Settings</h2>
+
+            <p>
+              Settings and workspace configuration
+              will be available here.
+            </p>
+          </div>
+        );
+
+      default:
+        return (
+          <Dashboard
+            onNavigate={handleNavigate}
+          />
+        );
+    }
+  }
+
+  // ========================================
+  // CURRENT PAGE
+  // ========================================
+
+  const pageInfo = getPageInfo();
+
+  // ========================================
+  // MAIN APPLICATION
+  // ========================================
 
   return (
-    <div className="app">
+    <div className="app-shell">
+
       <Sidebar
         activePage={activePage}
-        onNavigate={handleNavigation}
+        onNavigate={handleNavigate}
       />
 
       <main className="main-content">
+
         <Header
-          title={currentPage.title}
-          subtitle={currentPage.subtitle}
+          title={pageInfo.title}
+          subtitle={pageInfo.subtitle}
         />
 
-        <section className="page-content">
-          {activePage === "dashboard" && (
-            <Dashboard onNavigate={handleNavigation} />
-          )}
+        <div className="page-content">
+          {renderPage()}
+        </div>
 
-          {activePage === "patients" && <Patients />}
-
-          {activePage === "new-report" && <NewReport />}
-
-          {activePage === "worklist" &&
-            (selectedReportId ? (
-              <ReportEditor
-                reportId={selectedReportId}
-                onBack={goBackToWorklist}
-                onOpenReport={openReport}
-              />
-            ) : (
-              <Worklist onSelectReport={openReport} />
-            ))}
-
-          {activePage === "history" && (
-            <VersionHistory
-              onSelectReport={openReport}
-            />
-          )}
-
-          {activePage === "settings" && (
-            <div className="placeholder-card">
-              <h3>Settings</h3>
-              <p>
-                Settings and workspace configuration will be available here.
-              </p>
-            </div>
-          )}
-        </section>
       </main>
+
     </div>
   );
 }

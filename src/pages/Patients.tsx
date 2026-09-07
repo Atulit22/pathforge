@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, Search, Users, X } from "lucide-react";
 import { usePatients, type Patient } from "../store/PatientContext";
-
+import Swal from "sweetalert2";
 export default function Patients() {
   const { patients, addPatient, loading } = usePatients();
 
@@ -44,7 +44,7 @@ export default function Patients() {
       !formData.gender ||
       !formData.patientId.trim()
     ) {
-      alert("Please fill in all fields.");
+      Swal.fire("Please select a patient.");;
       return;
     }
 
@@ -72,7 +72,7 @@ export default function Patients() {
     } catch (error) {
       console.error("Failed to save patient:", error);
 
-      alert(
+      Swal.fire(
         `Failed to save patient. Check the console for details.`
       );
     } finally {
