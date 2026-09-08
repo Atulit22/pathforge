@@ -9,15 +9,32 @@ import {
   Download,
 } from "lucide-react";
 import Swal from "sweetalert2";
-import jsPDF from "jspdf";
 
-import { useReports } from "../store/ReportContext";
+import { useReports, type TestResult } from "../store/ReportContext";
 import { usePatients } from "../store/PatientContext";
+import PrintableReport from "../components/report/PrintableReport";
+import ResultsTable from "../components/report/ResultsTable";
+import { downloadReportPdf } from "../components/report/reportPdf";
+import { buildReportModel } from "../components/report/reportModel";
 
 interface ReportEditorProps {
   reportId: string;
   onBack: () => void;
   onOpenReport: (reportId: string) => void;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character] ?? character
+  );
 }
 
 function ReportEditor({
@@ -28,8 +45,11 @@ function ReportEditor({
   const {
     getReport,
     updateReport,
+    finalizeReport,
     createAmendment,
   } = useReports();
+
+  const [busy, setBusy] = useState(false);
 
   const { patients } = usePatients();
 
@@ -40,6 +60,7 @@ function ReportEditor({
     clinicalHistory: "",
     findings: "",
     diagnosis: "",
+    testResults: [] as TestResult[],
   });
 
   // ========================================
@@ -55,6 +76,7 @@ function ReportEditor({
         foundReport.clinicalHistory ?? "",
       findings: foundReport.findings ?? "",
       diagnosis: foundReport.diagnosis ?? "",
+      testResults: foundReport.testResults ?? [],
     });
   }, [foundReport]);
 
@@ -87,6 +109,26 @@ function ReportEditor({
   const isFinalized =
     report.status === "finalized";
 
+  // Single source of truth for the report's printable / PDF content.
+  const reportModel = buildReportModel({
+    patientName: patient?.name ?? "Unknown Patient",
+    patientCode: patient?.patientId ?? "Unknown ID",
+    reportId: report.id,
+    version: report.version,
+    isFinalized,
+    finalizedAt: report.finalizedAt,
+    panelName: report.testName,
+    department: report.department,
+    reportDate: report.createdAt,
+    content: {
+      specimenType: formData.specimenType,
+      clinicalHistory: formData.clinicalHistory,
+      findings: formData.findings,
+      diagnosis: formData.diagnosis,
+      testResults: formData.testResults,
+    },
+  });
+
   // ========================================
   // HANDLE FORM CHANGE
   // ========================================
@@ -106,26 +148,42 @@ function ReportEditor({
     }));
   }
 
+  function handleResultChange(
+    testId: string,
+    parameterId: string,
+    value: string
+  ) {
+    if (isFinalized) return;
+
+    setFormData((previous) => ({
+      ...previous,
+      testResults: previous.testResults.map((result) =>
+        result.testId === testId && result.parameterId === parameterId
+          ? { ...result, value }
+          : result
+      ),
+    }));
+  }
+
   // ========================================
   // SAVE REPORT
   // ========================================
 
-  function saveChanges() {
-    if (isFinalized) return;
+  async function saveChanges() {
+    if (isFinalized || busy) return;
 
-    updateReport(report.id, {
-      specimenType:
-        formData.specimenType,
-
-      clinicalHistory:
-        formData.clinicalHistory,
-
-      findings:
-        formData.findings,
-
-      diagnosis:
-        formData.diagnosis,
-    });
+    setBusy(true);
+    try {
+      await updateReport(report.id, {
+        specimenType: formData.specimenType,
+        clinicalHistory: formData.clinicalHistory,
+        findings: formData.findings,
+        diagnosis: formData.diagnosis,
+        testResults: formData.testResults,
+      });
+    } finally {
+      setBusy(false);
+    }
 
     Swal.fire({
       icon: "success",
@@ -140,27 +198,35 @@ function ReportEditor({
   // FINALIZE REPORT
   // ========================================
 
-  function finalizeReport() {
-    if (isFinalized) return;
+  async function handleFinalize() {
+    if (isFinalized || busy) return;
 
-    updateReport(report.id, {
-      specimenType:
-        formData.specimenType,
+    setBusy(true);
+    let result;
+    try {
+      // Persist the current edits first, then validate + finalize.
+      await updateReport(report.id, {
+        specimenType: formData.specimenType,
+        clinicalHistory: formData.clinicalHistory,
+        findings: formData.findings,
+        diagnosis: formData.diagnosis,
+        testResults: formData.testResults,
+      });
+      result = await finalizeReport(report.id);
+    } finally {
+      setBusy(false);
+    }
 
-      clinicalHistory:
-        formData.clinicalHistory,
-
-      findings:
-        formData.findings,
-
-      diagnosis:
-        formData.diagnosis,
-
-      status: "finalized",
-
-      finalizedAt:
-        new Date().toISOString(),
-    });
+    if (!result.valid) {
+      Swal.fire({
+        icon: "error",
+        title: "Cannot finalize this report",
+        html: `<ul style="text-align:left;margin:0;padding-left:1.2em">${result.errors
+          .map((issue) => `<li>${escapeHtml(issue.message)}</li>`)
+          .join("")}</ul>`,
+      });
+      return;
+    }
 
     Swal.fire({
       icon: "success",
@@ -173,11 +239,30 @@ function ReportEditor({
   // CREATE AMENDMENT
   // ========================================
 
-  function handleCreateAmendment() {
-    if (!isFinalized) return;
+  async function handleCreateAmendment() {
+    if (!isFinalized || busy) return;
 
-    const amendment =
-      createAmendment(report.id);
+    const { value: reason } = await Swal.fire<string>({
+      icon: "question",
+      title: "Create Amendment",
+      input: "textarea",
+      inputLabel: "Reason for amendment",
+      inputPlaceholder: "Describe why this version is being corrected…",
+      inputValidator: (value) =>
+        value && value.trim() ? undefined : "An amendment reason is required.",
+      showCancelButton: true,
+      confirmButtonText: "Create amendment",
+    });
+
+    if (!reason || !reason.trim()) return;
+
+    setBusy(true);
+    let amendment;
+    try {
+      amendment = await createAmendment(report.id, reason.trim());
+    } finally {
+      setBusy(false);
+    }
 
     if (!amendment) {
       Swal.fire({
@@ -185,7 +270,6 @@ function ReportEditor({
         title: "Error",
         text: "Could not create amendment.",
       });
-
       return;
     }
 
@@ -199,670 +283,30 @@ function ReportEditor({
   }
 
   // ========================================
-  // PRINT REPORT
+  // PRINT  /  DOWNLOAD PDF
+  //
+  // "Print" sends the on-screen `.print-report` layout to the OS print dialog.
+  // "Download PDF" builds a PDF file from the same report data and prompts for a
+  // save location (native dialog in Tauri, "Save As" picker in the browser).
   // ========================================
 
   function handlePrint() {
     window.print();
   }
 
-  // ========================================
-  // GENERATE PDF
-  // ========================================
-
-  function handleGeneratePDF() {
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-    });
-
-    const pageWidth =
-      pdf.internal.pageSize.getWidth();
-
-    const pageHeight =
-      pdf.internal.pageSize.getHeight();
-
-    const margin = 18;
-
-    const contentWidth =
-      pageWidth - margin * 2;
-
-    let y = 18;
-
-    // COLORS
-
-    const navy = [15, 42, 61] as const;
-
-    const blue = [37, 99, 235] as const;
-
-    const lightBlue = [
-      239,
-      246,
-      255,
-    ] as const;
-
-    const lightGray = [
-      245,
-      247,
-      250,
-    ] as const;
-
-    const gray = [
-      107,
-      114,
-      128,
-    ] as const;
-
-    const dark = [
-      31,
-      41,
-      55,
-    ] as const;
-
-    const green = [
-      22,
-      163,
-      74,
-    ] as const;
-
-    const orange = [
-      217,
-      119,
-      6,
-    ] as const;
-
-    // ========================================
-    // HEADER
-    // ========================================
-
-    function drawHeader() {
-      pdf.setFillColor(...navy);
-
-      pdf.rect(
-        0,
-        0,
-        pageWidth,
-        32,
-        "F"
-      );
-
-      pdf.setTextColor(
-        255,
-        255,
-        255
-      );
-
-      pdf.setFont(
-        "helvetica",
-        "bold"
-      );
-
-      pdf.setFontSize(20);
-
-      pdf.text(
-        "PATHFORGE",
-        margin,
-        16
-      );
-
-      pdf.setFont(
-        "helvetica",
-        "normal"
-      );
-
-      pdf.setFontSize(8);
-
-      pdf.text(
-        "CLINICAL PATHOLOGY WORKSPACE",
-        margin,
-        23
-      );
-
-      pdf.setFont(
-        "helvetica",
-        "bold"
-      );
-
-      pdf.setFontSize(10);
-
-      pdf.text(
-        "PATHOLOGY REPORT",
-        pageWidth - margin,
-        17,
-        {
-          align: "right",
-        }
-      );
-
-      pdf.setFont(
-        "helvetica",
-        "normal"
-      );
-
-      pdf.setFontSize(8);
-
-      pdf.text(
-        `VERSION ${report.version}`,
-        pageWidth - margin,
-        23,
-        {
-          align: "right",
-        }
-      );
+  async function handleDownloadPdf() {
+    setBusy(true);
+    try {
+      await downloadReportPdf(reportModel);
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Could not create the PDF",
+        text: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusy(false);
     }
-
-    // ========================================
-    // FOOTER
-    // ========================================
-
-    function drawFooter(
-      pageNumber: number
-    ) {
-      pdf.setDrawColor(
-        220,
-        220,
-        220
-      );
-
-      pdf.line(
-        margin,
-        pageHeight - 16,
-        pageWidth - margin,
-        pageHeight - 16
-      );
-
-      pdf.setTextColor(...gray);
-
-      pdf.setFont(
-        "helvetica",
-        "normal"
-      );
-
-      pdf.setFontSize(7);
-
-      pdf.text(
-        "Generated by PathForge Clinical Pathology Workspace",
-        margin,
-        pageHeight - 10
-      );
-
-      pdf.text(
-        `Page ${pageNumber}`,
-        pageWidth - margin,
-        pageHeight - 10,
-        {
-          align: "right",
-        }
-      );
-    }
-
-    // ========================================
-    // PAGE SPACE CHECK
-    // ========================================
-
-    function ensureSpace(
-      requiredHeight: number
-    ) {
-      if (
-        y + requiredHeight >
-        pageHeight - 25
-      ) {
-        pdf.addPage();
-
-        drawHeader();
-
-        y = 45;
-      }
-    }
-
-    // ========================================
-    // SECTION TITLE
-    // ========================================
-
-    function addSectionTitle(
-      title: string
-    ) {
-      ensureSpace(20);
-
-      pdf.setFillColor(
-        ...lightBlue
-      );
-
-      pdf.roundedRect(
-        margin,
-        y,
-        contentWidth,
-        9,
-        2,
-        2,
-        "F"
-      );
-
-      pdf.setTextColor(...blue);
-
-      pdf.setFont(
-        "helvetica",
-        "bold"
-      );
-
-      pdf.setFontSize(10);
-
-      pdf.text(
-        title.toUpperCase(),
-        margin + 4,
-        y + 6
-      );
-
-      y += 15;
-    }
-
-    // ========================================
-    // PARAGRAPH
-    // ========================================
-
-    function addParagraph(
-      content: string
-    ) {
-      const text =
-        content?.trim() ||
-        "Not provided";
-
-      pdf.setTextColor(...dark);
-
-      pdf.setFont(
-        "helvetica",
-        "normal"
-      );
-
-      pdf.setFontSize(9);
-
-      const lines =
-        pdf.splitTextToSize(
-          text,
-          contentWidth
-        );
-
-      lines.forEach(
-        (line: string) => {
-          ensureSpace(7);
-
-          pdf.text(
-            line,
-            margin,
-            y
-          );
-
-          y += 5.5;
-        }
-      );
-
-      y += 7;
-    }
-
-    // ========================================
-    // START DOCUMENT
-    // ========================================
-
-    drawHeader();
-
-    y = 45;
-
-    // TITLE
-
-    pdf.setTextColor(...dark);
-
-    pdf.setFont(
-      "helvetica",
-      "bold"
-    );
-
-    pdf.setFontSize(16);
-
-    pdf.text(
-      "Diagnostic Pathology Report",
-      margin,
-      y
-    );
-
-    y += 7;
-
-    pdf.setTextColor(...gray);
-
-    pdf.setFont(
-      "helvetica",
-      "normal"
-    );
-
-    pdf.setFontSize(8);
-
-    pdf.text(
-      `Generated: ${new Date().toLocaleString()}`,
-      margin,
-      y
-    );
-
-    y += 12;
-
-    // ========================================
-    // PATIENT INFORMATION
-    // ========================================
-
-    pdf.setFillColor(
-      ...lightGray
-    );
-
-    pdf.roundedRect(
-      margin,
-      y,
-      contentWidth,
-      38,
-      3,
-      3,
-      "F"
-    );
-
-    pdf.setTextColor(...dark);
-
-    pdf.setFont(
-      "helvetica",
-      "bold"
-    );
-
-    pdf.setFontSize(10);
-
-    pdf.text(
-      "PATIENT INFORMATION",
-      margin + 5,
-      y + 8
-    );
-
-    pdf.setDrawColor(
-      220,
-      220,
-      220
-    );
-
-    pdf.line(
-      margin + 5,
-      y + 11,
-      pageWidth - margin - 5,
-      y + 11
-    );
-
-    const leftX =
-      margin + 5;
-
-    const rightX =
-      margin +
-      contentWidth / 2 +
-      5;
-
-    const infoY =
-      y + 19;
-
-    pdf.setTextColor(...gray);
-
-    pdf.setFont(
-      "helvetica",
-      "normal"
-    );
-
-    pdf.setFontSize(8);
-
-    pdf.text(
-      "PATIENT NAME",
-      leftX,
-      infoY
-    );
-
-    pdf.text(
-      "PATIENT ID",
-      rightX,
-      infoY
-    );
-
-    pdf.text(
-      "REPORT VERSION",
-      leftX,
-      infoY + 11
-    );
-
-    pdf.text(
-      "STATUS",
-      rightX,
-      infoY + 11
-    );
-
-    pdf.setTextColor(...dark);
-
-    pdf.setFont(
-      "helvetica",
-      "bold"
-    );
-
-    pdf.setFontSize(10);
-
-    pdf.text(
-      patient?.name ??
-        "Unknown Patient",
-      leftX,
-      infoY + 5
-    );
-
-    pdf.text(
-      patient?.patientId ??
-        "Unknown ID",
-      rightX,
-      infoY + 5
-    );
-
-    pdf.text(
-      `Version ${report.version}`,
-      leftX,
-      infoY + 16
-    );
-
-    if (isFinalized) {
-      pdf.setTextColor(...green);
-    } else {
-      pdf.setTextColor(...orange);
-    }
-
-    pdf.text(
-      isFinalized
-        ? "FINALIZED"
-        : "DRAFT",
-      rightX,
-      infoY + 16
-    );
-
-    y += 48;
-
-    // ========================================
-    // SPECIMEN
-    // ========================================
-
-    addSectionTitle(
-      "Specimen Details"
-    );
-
-    pdf.setFillColor(
-      255,
-      255,
-      255
-    );
-
-    pdf.setDrawColor(
-      225,
-      225,
-      225
-    );
-
-    pdf.roundedRect(
-      margin,
-      y,
-      contentWidth,
-      18,
-      2,
-      2,
-      "FD"
-    );
-
-    pdf.setTextColor(...gray);
-
-    pdf.setFont(
-      "helvetica",
-      "normal"
-    );
-
-    pdf.setFontSize(8);
-
-    pdf.text(
-      "SPECIMEN TYPE",
-      margin + 5,
-      y + 7
-    );
-
-    pdf.setTextColor(...dark);
-
-    pdf.setFont(
-      "helvetica",
-      "bold"
-    );
-
-    pdf.setFontSize(10);
-
-    pdf.text(
-      formData.specimenType ||
-        "Not specified",
-      margin + 5,
-      y + 13
-    );
-
-    y += 26;
-
-    // ========================================
-    // CLINICAL HISTORY
-    // ========================================
-
-    addSectionTitle(
-      "Clinical History"
-    );
-
-    addParagraph(
-      formData.clinicalHistory
-    );
-
-    // ========================================
-    // MICROSCOPIC FINDINGS
-    // ========================================
-
-    addSectionTitle(
-      "Microscopic Findings"
-    );
-
-    addParagraph(
-      formData.findings
-    );
-
-    // ========================================
-    // DIAGNOSIS
-    // ========================================
-
-    addSectionTitle(
-      "Diagnosis"
-    );
-
-    addParagraph(
-      formData.diagnosis
-    );
-
-    // ========================================
-    // FINALIZATION INFO
-    // ========================================
-
-    ensureSpace(25);
-
-    pdf.setDrawColor(
-      220,
-      220,
-      220
-    );
-
-    pdf.line(
-      margin,
-      y,
-      pageWidth - margin,
-      y
-    );
-
-    y += 8;
-
-    pdf.setTextColor(...gray);
-
-    pdf.setFont(
-      "helvetica",
-      "normal"
-    );
-
-    pdf.setFontSize(8);
-
-    const finalizationText =
-      isFinalized
-        ? `Finalized on ${
-            report.finalizedAt
-              ? new Date(
-                  report.finalizedAt
-                ).toLocaleString()
-              : "Unknown date"
-          }`
-        : "This report is currently a draft.";
-
-    pdf.text(
-      finalizationText,
-      margin,
-      y
-    );
-
-    // ========================================
-    // ADD FOOTERS
-    // ========================================
-
-    const totalPages =
-      pdf.getNumberOfPages();
-
-    for (
-      let page = 1;
-      page <= totalPages;
-      page++
-    ) {
-      pdf.setPage(page);
-
-      drawFooter(page);
-    }
-
-    // ========================================
-    // FILE NAME
-    // ========================================
-
-    const patientName =
-      patient?.name
-        ?.replace(/\s+/g, "_")
-        .replace(/[^\w-]/g, "") ??
-      "Patient";
-
-    pdf.save(
-      `PathForge_${patientName}_Report_V${report.version}.pdf`
-    );
-
-    Swal.fire({
-      icon: "success",
-      title: "PDF Generated",
-      text: "Your pathology report has been downloaded.",
-      timer: 2200,
-      showConfirmButton: false,
-    });
   }
 
   // ========================================
@@ -941,7 +385,8 @@ function ReportEditor({
 
           <button
             className="secondary-button"
-            onClick={handleGeneratePDF}
+            onClick={handleDownloadPdf}
+            disabled={busy}
           >
             <Download size={17} />
             Download PDF
@@ -953,6 +398,7 @@ function ReportEditor({
               <button
                 className="secondary-button"
                 onClick={saveChanges}
+                disabled={busy}
               >
                 <Save size={17} />
                 Save Changes
@@ -960,7 +406,8 @@ function ReportEditor({
 
               <button
                 className="primary-button"
-                onClick={finalizeReport}
+                onClick={handleFinalize}
+                disabled={busy}
               >
                 <CheckCircle2 size={17} />
                 Finalize Report
@@ -1036,6 +483,12 @@ function ReportEditor({
           </div>
 
         </div>
+
+        <ResultsTable
+          results={formData.testResults}
+          disabled={isFinalized}
+          onResultChange={handleResultChange}
+        />
 
         {/* CLINICAL HISTORY */}
 
@@ -1136,197 +589,8 @@ function ReportEditor({
 
       </div>
 
-      {/* ========================================
-          PRINT REPORT
-          THIS IS WHAT WAS MISSING
-      ======================================== */}
-
-      <div className="print-report print-only">
-
-        {/* HEADER */}
-
-        <div className="print-header">
-
-          <div>
-            <h1>
-              PathForge
-            </h1>
-
-            <p>
-              Clinical Pathology Workspace
-            </p>
-          </div>
-
-          <div className="print-report-meta">
-
-            <strong>
-              Pathology Report
-            </strong>
-
-            <span>
-              Version {report.version}
-            </span>
-
-            <span>
-              {isFinalized
-                ? "Finalized"
-                : "Draft"}
-            </span>
-
-          </div>
-
-        </div>
-
-        {/* PATIENT INFORMATION */}
-
-        <div className="patient-print-info">
-
-          <div>
-            <span>
-              Patient Name
-            </span>
-
-            <strong>
-              {patient?.name ??
-                "Unknown Patient"}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Patient ID
-            </span>
-
-            <strong>
-              {patient?.patientId ??
-                "Unknown ID"}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Report Version
-            </span>
-
-            <strong>
-              Version {report.version}
-            </strong>
-          </div>
-
-        </div>
-
-        {/* SPECIMEN */}
-
-        <section className="print-section">
-
-          <h2>
-            Specimen Details
-          </h2>
-
-          <div className="print-field">
-
-            <span>
-              Specimen Type
-            </span>
-
-            <p>
-              {formData.specimenType ||
-                "Not specified"}
-            </p>
-
-          </div>
-
-        </section>
-
-        {/* CLINICAL HISTORY */}
-
-        <section className="print-section">
-
-          <h2>
-            Clinical History
-          </h2>
-
-          <p className="print-content">
-            {formData.clinicalHistory ||
-              "Not provided"}
-          </p>
-
-        </section>
-
-        {/* FINDINGS */}
-
-        <section className="print-section">
-
-          <h2>
-            Microscopic Findings
-          </h2>
-
-          <p className="print-content">
-            {formData.findings ||
-              "Not provided"}
-          </p>
-
-        </section>
-
-        {/* DIAGNOSIS */}
-
-        <section className="print-section diagnosis-print">
-
-          <h2>
-            Diagnosis
-          </h2>
-
-          <p className="print-content">
-            {formData.diagnosis ||
-              "Not provided"}
-          </p>
-
-        </section>
-
-        {/* FINALIZATION */}
-
-        <div className="print-finalization">
-
-          <strong>
-            Report Status:
-          </strong>{" "}
-
-          {isFinalized
-            ? "Finalized"
-            : "Draft"}
-
-          {isFinalized &&
-            report.finalizedAt && (
-              <>
-                <br />
-
-                Finalized on{" "}
-
-                {new Date(
-                  report.finalizedAt
-                ).toLocaleString()}
-              </>
-            )}
-
-        </div>
-
-        {/* FOOTER */}
-
-        <div className="print-footer">
-
-          <p>
-            Generated by PathForge Clinical
-            Pathology Workspace
-          </p>
-
-          <p>
-            Generated on{" "}
-            {new Date().toLocaleString()}
-          </p>
-
-        </div>
-
-      </div>
+      {/* Canonical house-format report layout — same model feeds the PDF. */}
+      <PrintableReport model={reportModel} />
 
     </div>
   );

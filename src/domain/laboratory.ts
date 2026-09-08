@@ -18,6 +18,9 @@ export type ResultType =
   | "positive_negative"
   | "custom";
 
+// The result kinds the current UI can actually create and edit.
+export type ParameterType = "number" | "text";
+
 // ----------------------------------------
 // REFERENCE RANGE
 // ----------------------------------------
@@ -36,7 +39,9 @@ export interface TestParameter {
   id: string;
   name: string;
 
-  resultType: ResultType;
+  // Kind of result field. Historically also written as `resultType`;
+  // `type` is the single supported spelling.
+  type: ParameterType;
 
   unit?: string;
 
@@ -44,14 +49,15 @@ export interface TestParameter {
 
   symbol?: "<" | ">" | "<=" | ">=" | "=";
 
-  required: boolean;
+  // Whether a value must be entered before a report can be finalized.
+  required?: boolean;
 }
 
 // ----------------------------------------
 // LABORATORY TEST
 // ----------------------------------------
 
-export interface LabTest {
+export interface LaboratoryTest {
   id: string;
 
   name: string;
@@ -66,6 +72,9 @@ export interface LabTest {
 
   updatedAt?: string;
 }
+
+// Backwards-compatible alias for earlier code that used `LabTest`.
+export type LabTest = LaboratoryTest;
 
 // ----------------------------------------
 // PATIENT PARAMETER RESULT

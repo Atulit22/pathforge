@@ -8,6 +8,11 @@
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 
+    /* Allow the React layer to consume the JSDoc-typed domain/service modules
+       (.mjs) directly. Those modules are type-checked by tsconfig.json. */
+    "allowJs": true,
+    "checkJs": false,
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -22,5 +27,6 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.mjs", "src/**/*.test.ts", "src/**/*.test.tsx"]
 }

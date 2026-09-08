@@ -115,6 +115,7 @@ export interface TestResult {
 export type {
   UserRole,
   ResultType,
+  ParameterType,
   ReferenceRange,
   TestParameter,
   LaboratoryTest,

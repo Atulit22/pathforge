@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { usePatients } from "../store/PatientContext";
 import { useReports } from "../store/ReportContext";
+import { checkClinicalCompleteness } from "../domain/report-bridge.mjs";
 import type { Page } from "../components/layout/Sidebar";
 
 interface DashboardProps {
@@ -26,6 +27,10 @@ export default function Dashboard({
 
   const finalizedReports = reports.filter(
     (report) => report.status === "finalized"
+  );
+
+  const needsAttentionReports = draftReports.filter(
+    (report) => checkClinicalCompleteness(report).length > 0
   );
 
   const recentReports = [...reports]
@@ -102,7 +107,7 @@ export default function Dashboard({
 
           <div>
             <p>Needs Attention</p>
-            <h2>{draftReports.length}</h2>
+            <h2>{needsAttentionReports.length}</h2>
           </div>
         </div>
       </div>

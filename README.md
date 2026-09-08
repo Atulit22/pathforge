@@ -20,15 +20,18 @@ nvm use
 npm ci
 cp .env.example .env
 npm run verify
-npm run build
-npm start
+npm run tauri dev
 ```
 
-Open <http://127.0.0.1:4173>, load or paste report JSON, generate the preview,
-then use **Print / Save PDF**. `npm start` is the one-command product entry
-point. The internal task dashboard remains available through `npm run
-dashboard`. Native ESM runs directly in Node, so `npm run build` validates the
-source rather than emitting generated JavaScript.
+The React + Tauri desktop app under `src/` is the product. `npm run tauri dev`
+runs the native shell with the local SQLite database; `npm run dev` serves the
+same UI in a browser for quick iteration, and `npm run build` produces the
+production web bundle. Load report data, generate the preview, then use
+**Print / Save PDF**. The internal task dashboard remains available through
+`npm run dashboard`.
+
+The standalone app in [`desktop/`](desktop/) is frozen UX reference only — it is
+not a build target and is not wired into `npm run verify` or CI.
 
 `npm run verify` is the local and CI quality gate. It checks formatting, lint,
 types, unit tests, domain fixtures, and the task ledger. Run `npm run format`

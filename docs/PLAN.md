@@ -10,7 +10,8 @@ simple amendment/version behavior, an in-memory service, and the
 presentation-neutral document model.
 
 Current priority: connect fixture-shaped input to a usable report preview and a
-Print / Save as PDF action. `npm start` must run that product surface.
+Print / Save as PDF action. `npm run tauri dev` must run that product surface
+(the React + Tauri app under `src/`).
 
 ## Active prototype sequence
 
@@ -22,8 +23,8 @@ Print / Save as PDF action. `npm start` must run that product surface.
 6. Use the supplied PDFs only for a short directional visual review; do not copy
    vendor quirks or delay the prototype for exhaustive profiling.
 
-Exit gate: a user can run `npm start`, load report data, see a correct preview,
-and print or save it as PDF.
+Exit gate: a user can run `npm run tauri dev`, load report data, see a correct
+preview, and print or save it as PDF.
 
 ## Deferred until explicit owner approval
 

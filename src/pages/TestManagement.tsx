@@ -11,6 +11,8 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import AddTestForm from "../components/tests/AddTestForm";
+import AddParameterForm from "../components/tests/AddParameterForm";
 
 import type {
   LaboratoryTest,
@@ -115,8 +117,6 @@ export default function TestManagement() {
       !newTest.department.trim()
     ) {
       Swal.fire("Please enter a test name and department.");
-        "Please enter a test name and department."
-      
       return;
     }
 
@@ -223,8 +223,6 @@ export default function TestManagement() {
   function handleAddParameter(testId: string) {
     if (!newParameter.name.trim()) {
       Swal.fire("Please enter a parameter name.");
-        "Please enter a parameter name."
-      
       return;
     }
 
@@ -288,16 +286,11 @@ export default function TestManagement() {
     });
 
     setEditParameterData({
-  name: parameter.name,
+      name: parameter.name,
 
-  type:
-    parameter.resultType === "number" || parameter.resultType === "text"
-      ? parameter.resultType
-      : parameter.type === "number"
-        ? "number"
-        : "text",
+      type: parameter.type === "text" ? "text" : "number",
 
-  unit: parameter.unit ?? "",
+      unit: parameter.unit ?? "",
 
       min:
         parameter.referenceRange?.min !==
@@ -328,8 +321,6 @@ export default function TestManagement() {
       !editParameterData.name.trim()
     ) {
       Swal.fire("Parameter name is required.");
-        "Parameter name is required."
-      
       return;
     }
 
@@ -448,112 +439,13 @@ export default function TestManagement() {
       {/* ADD TEST */}
 
       {showAddTest && (
-        <div className="admin-form-card">
-
-          <div className="admin-form-header">
-            <h3>
-              Add New Laboratory Test
-            </h3>
-
-            <button
-              className="icon-button"
-              onClick={() =>
-                setShowAddTest(false)
-              }
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          <div className="admin-form-grid">
-
-            <div className="form-group">
-              <label>Test Name</label>
-
-              <input
-                type="text"
-                placeholder="e.g. Liver Function Test"
-                value={newTest.name}
-                onChange={(event) =>
-                  setNewTest({
-                    ...newTest,
-                    name: event.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Department</label>
-
-              <input
-                type="text"
-                list="department-options"
-                placeholder="e.g. Biochemistry"
-                value={newTest.department}
-                onChange={(event) =>
-                  setNewTest({
-                    ...newTest,
-                    department:
-                      event.target.value,
-                  })
-                }
-              />
-
-              <datalist id="department-options">
-                {departments.map(
-                  (department) => (
-                    <option
-                      key={department}
-                      value={department}
-                    />
-                  )
-                )}
-              </datalist>
-            </div>
-
-            <div className="form-group">
-              <label>Specimen</label>
-
-              <input
-                type="text"
-                placeholder="e.g. Serum"
-                value={newTest.specimen}
-                onChange={(event) =>
-                  setNewTest({
-                    ...newTest,
-                    specimen:
-                      event.target.value,
-                  })
-                }
-              />
-            </div>
-
-          </div>
-
-          <div className="report-actions">
-
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() =>
-                setShowAddTest(false)
-              }
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              className="primary-button"
-              onClick={handleAddTest}
-            >
-              <Save size={18} />
-              Save Test
-            </button>
-
-          </div>
-        </div>
+        <AddTestForm
+          value={newTest}
+          departments={departments}
+          onChange={setNewTest}
+          onCancel={() => setShowAddTest(false)}
+          onSave={handleAddTest}
+        />
       )}
 
       {/* FILTER */}
@@ -800,172 +692,12 @@ export default function TestManagement() {
                   {/* ADD PARAMETER */}
 
                   {showAddParameter === test.id && (
-                    <div className="parameter-form">
-
-                      <h4>
-                        New Parameter
-                      </h4>
-
-                      <div className="parameter-form-grid">
-
-                        <div className="form-group">
-                          <label>
-                            Parameter Name
-                          </label>
-
-                          <input
-                            placeholder="e.g. ALT"
-                            value={
-                              newParameter.name
-                            }
-                            onChange={(event) =>
-                              setNewParameter({
-                                ...newParameter,
-                                name:
-                                  event.target.value,
-                              })
-                            }
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label>
-                            Result Type
-                          </label>
-
-                          <select
-                            value={
-                              newParameter.type
-                            }
-                            onChange={(event) =>
-                              setNewParameter({
-                                ...newParameter,
-                                type:
-                                  event.target
-                                    .value as
-                                    | "number"
-                                    | "text",
-                              })
-                            }
-                          >
-                            <option value="number">
-                              Number
-                            </option>
-
-                            <option value="text">
-                              Text
-                            </option>
-                          </select>
-                        </div>
-
-                        <div className="form-group">
-                          <label>
-                            Unit
-                          </label>
-
-                          <input
-                            placeholder="e.g. U/L"
-                            value={
-                              newParameter.unit
-                            }
-                            onChange={(event) =>
-                              setNewParameter({
-                                ...newParameter,
-                                unit:
-                                  event.target.value,
-                              })
-                            }
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label>
-                            Minimum Reference
-                          </label>
-
-                          <input
-                            type="number"
-                            value={
-                              newParameter.min
-                            }
-                            onChange={(event) =>
-                              setNewParameter({
-                                ...newParameter,
-                                min:
-                                  event.target.value,
-                              })
-                            }
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label>
-                            Maximum Reference
-                          </label>
-
-                          <input
-                            type="number"
-                            value={
-                              newParameter.max
-                            }
-                            onChange={(event) =>
-                              setNewParameter({
-                                ...newParameter,
-                                max:
-                                  event.target.value,
-                              })
-                            }
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label>
-                            Text Reference
-                          </label>
-
-                          <input
-                            placeholder="e.g. Negative"
-                            value={
-                              newParameter.referenceText
-                            }
-                            onChange={(event) =>
-                              setNewParameter({
-                                ...newParameter,
-                                referenceText:
-                                  event.target.value,
-                              })
-                            }
-                          />
-                        </div>
-
-                      </div>
-
-                      <div className="report-actions">
-
-                        <button
-                          className="secondary-button"
-                          onClick={() =>
-                            setShowAddParameter(null)
-                          }
-                        >
-                          Cancel
-                        </button>
-
-                        <button
-                          className="primary-button"
-                          onClick={() =>
-                            handleAddParameter(
-                              test.id
-                            )
-                          }
-                        >
-                          <Save size={16} />
-                          Add Parameter
-                        </button>
-
-                      </div>
-
-                    </div>
+                    <AddParameterForm
+                      value={newParameter}
+                      onChange={setNewParameter}
+                      onCancel={() => setShowAddParameter(null)}
+                      onSave={() => handleAddParameter(test.id)}
+                    />
                   )}
 
                   {/* PARAMETERS TABLE */}

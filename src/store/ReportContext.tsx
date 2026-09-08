@@ -1,16 +1,40 @@
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
+  useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
-import { validateReport } from "../domain/validation";
+import {
+  createReportService,
+  createWorkspaceServiceAdapter,
+} from "../service/index.mjs";
+import {
+  buildResolvedPayload,
+  checkClinicalCompleteness,
+  generateIssueNumber,
+  issueDateFromIso,
+  readWorkspaceContent,
+  WORKSPACE_CATALOG_VERSION,
+  type WorkspaceReportContent,
+} from "../domain/report-bridge.mjs";
 
-import type {
-  ReportContent,
-  ValidationResult,
-} from "../domain/types";
+import { useAuth } from "./AuthContext";
+import {
+  loadReportWorkspaceMeta,
+  loadReportWorkspaceState,
+  saveReportWorkspaceMeta,
+  saveReportWorkspaceState,
+} from "../database/db";
+import type { ValidationError, ValidationResult } from "../domain/types";
+
+// ========================================
+// PUBLIC SHAPES (unchanged for pages)
+// ========================================
 
 export interface ReferenceRange {
   min?: number;
@@ -21,6 +45,11 @@ export interface ReferenceRange {
 export interface TestResult {
   parameterId: string;
   parameterName: string;
+
+  // Which laboratory test this parameter belongs to. A report can include
+  // several tests, so results are grouped by these.
+  testId: string;
+  testName: string;
 
   // Always stored as a string, even if the parameter has no unit
   unit: string;
@@ -41,12 +70,13 @@ export interface Report {
   findings: string;
   diagnosis: string;
 
-  // Selected laboratory test
+  // Summary of the laboratory tests included in this report. When several tests
+  // are present these are comma-joined; per-result grouping lives on testResults.
   testId?: string;
   testName?: string;
   department?: string;
 
-  // Results entered for the selected test
+  // Results entered across every test in the report
   testResults: TestResult[];
 
   status: "draft" | "finalized";
@@ -60,239 +90,383 @@ export interface Report {
   supersedesReportId?: string;
 }
 
+export interface AuditEntry {
+  id: string;
+  type: string;
+  actor: string;
+  occurredAt: string;
+  version: number;
+}
+
 interface ReportContextType {
   reports: Report[];
 
-  addReport: (report: Report) => void;
+  /** Create a new report draft. Returns the stored draft. */
+  addReport: (report: Report) => Promise<Report | undefined>;
 
-  updateReport: (
-    id: string,
-    updates: Partial<Report>
-  ) => void;
+  /** Save edits to a draft version. No-op for finalized versions. */
+  updateReport: (id: string, updates: Partial<Report>) => Promise<void>;
 
-  getReport: (
-    id: string
-  ) => Report | undefined;
+  getReport: (id: string) => Report | undefined;
 
+  /**
+   * Validate and finalize a draft version. When validation fails the report is
+   * left untouched and the failing checks are returned.
+   */
+  finalizeReport: (id: string) => Promise<ValidationResult>;
+
+  /** Create a draft amendment of a finalized version. */
   createAmendment: (
-    reportId: string
-  ) => Report | undefined;
+    id: string,
+    amendmentReason: string
+  ) => Promise<Report | undefined>;
 
-  getReportVersions: (
-    reportId: string
-  ) => Report[];
+  getReportVersions: (id: string) => Report[];
 
-  validateReportBeforeFinalizing: (
-    reportId: string
-  ) => ValidationResult;
+  getAuditTrail: (id: string) => AuditEntry[];
 }
 
-const ReportContext = createContext<
-  ReportContextType | undefined
->(undefined);
+const ReportContext = createContext<ReportContextType | undefined>(undefined);
 
-export function ReportProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const [reports, setReports] = useState<Report[]>([]);
+// ========================================
+// INTERNAL MODEL
+// ========================================
 
-  function addReport(report: Report) {
-    setReports((previous) => [
-      ...previous,
-      report,
-    ]);
-  }
+interface ReportMeta {
+  reportId: string;
+  patientId: string;
+  testId?: string;
+  testName?: string;
+  department?: string;
+  createdAt: string;
+}
 
-  function updateReport(
-    id: string,
-    updates: Partial<Report>
-  ) {
-    setReports((previous) =>
-      previous.map((report) =>
-        report.id === id
-          ? {
-              ...report,
-              ...updates,
-              updatedAt: new Date().toISOString(),
-            }
-          : report
-      )
-    );
-  }
+interface VersionSnapshot {
+  version: number;
+  status: "draft" | "finalized";
+  createdAt: string;
+  finalizedAt?: string;
+  supersedesVersion: number | null;
+  content: WorkspaceReportContent;
+}
 
-  function getReport(
-    id: string
-  ): Report | undefined {
-    return reports.find(
-      (report) => report.id === id
-    );
-  }
+interface ReportRecord {
+  reportId: string;
+  revision: number;
+  versions: VersionSnapshot[];
+  audit: AuditEntry[];
+}
 
-  function validateReportBeforeFinalizing(
-    reportId: string
-  ): ValidationResult {
-    const report = reports.find(
-      (item) => item.id === reportId
-    );
+const ID_SEPARATOR = "::";
 
-    if (!report) {
-      return {
-        valid: false,
-        errors: [
-          {
-            field: "report",
-            code: "REPORT_NOT_FOUND",
-            message: "Report not found.",
-          },
-        ],
-      };
-    }
+function makeId(reportId: string, version: number): string {
+  return `${reportId}${ID_SEPARATOR}${version}`;
+}
 
-    const content: ReportContent = {
-      specimens: [
-        {
-          id: crypto.randomUUID(),
-          type: report.specimenType,
-        },
-      ],
+function parseId(id: string): { reportId: string; version: number } {
+  const index = id.lastIndexOf(ID_SEPARATOR);
+  if (index === -1) return { reportId: id, version: 1 };
+  return {
+    reportId: id.slice(0, index),
+    version: Number(id.slice(index + ID_SEPARATOR.length)) || 1,
+  };
+}
 
-      clinicalHistory: {
-        text: report.clinicalHistory,
-      },
+function contentFromReport(
+  source: Partial<Report>,
+  base?: WorkspaceReportContent
+): WorkspaceReportContent {
+  return {
+    specimenType: source.specimenType ?? base?.specimenType ?? "",
+    clinicalHistory: source.clinicalHistory ?? base?.clinicalHistory ?? "",
+    findings: source.findings ?? base?.findings ?? "",
+    diagnosis: source.diagnosis ?? base?.diagnosis ?? "",
+    testResults: (source.testResults ?? base?.testResults ?? []).map((result) => ({
+      parameterId: result.parameterId,
+      parameterName: result.parameterName,
+      testId: result.testId,
+      testName: result.testName,
+      unit: result.unit,
+      value: result.value,
+      referenceRange: result.referenceRange,
+    })),
+  };
+}
 
-      findings: report.findings,
+// ========================================
+// PROVIDER
+// ========================================
 
-      diagnosis: report.diagnosis,
-    };
+export function ReportProvider({ children }: { children: ReactNode }) {
+  const { actor } = useAuth();
+  const actorRef = useRef(actor);
+  actorRef.current = actor;
 
-    return validateReport(content);
-  }
+  const adapter = useMemo(
+    () =>
+      createWorkspaceServiceAdapter({
+        onCommit: saveReportWorkspaceState,
+      }),
+    []
+  );
 
-  function createAmendment(
-    reportId: string
-  ): Report | undefined {
-    const originalReport = reports.find(
-      (report) => report.id === reportId
-    );
+  const service = useMemo(
+    () =>
+      createReportService({
+        ...adapter,
+        clock: { now: () => new Date().toISOString() },
+        idGenerator: { nextId: () => crypto.randomUUID() },
+      }),
+    [adapter]
+  );
 
-    if (!originalReport) {
-      return undefined;
-    }
+  const metaRef = useRef<Map<string, ReportMeta>>(new Map());
+  const recordsRef = useRef<Map<string, ReportRecord>>(new Map());
+  const [records, setRecords] = useState<Map<string, ReportRecord>>(new Map());
 
-    const amendment: Report = {
-      id: crypto.randomUUID(),
+  const refresh = useCallback(async () => {
+    const next = new Map<string, ReportRecord>();
 
-      patientId: originalReport.patientId,
+    for (const meta of metaRef.current.values()) {
+      try {
+        const history = await service.retrieveHistory({ reportId: meta.reportId });
 
-      specimenType:
-        originalReport.specimenType,
+        const draftTimes = new Map<number, string>();
+        for (const event of history.auditEvents) {
+          if (
+            event.event_type === "report_draft_created" ||
+            event.event_type === "amendment_draft_created"
+          ) {
+            draftTimes.set(event.report_version.version, event.occurred_at);
+          }
+        }
 
-      clinicalHistory:
-        originalReport.clinicalHistory,
-
-      findings:
-        originalReport.findings,
-
-      diagnosis:
-        originalReport.diagnosis,
-
-      testId:
-        originalReport.testId,
-
-      testName:
-        originalReport.testName,
-
-      department:
-        originalReport.department,
-
-      testResults:
-        originalReport.testResults.map(
-          (result) => ({
-            ...result,
-          })
-        ),
-
-      status: "draft",
-
-      version:
-        originalReport.version + 1,
-
-      createdAt:
-        new Date().toISOString(),
-
-      supersedesReportId:
-        originalReport.id,
-    };
-
-    setReports((previous) => [
-      ...previous,
-      amendment,
-    ]);
-
-    return amendment;
-  }
-
-  function getReportVersions(
-    reportId: string
-  ): Report[] {
-    const selectedReport = reports.find(
-      (report) => report.id === reportId
-    );
-
-    if (!selectedReport) {
-      return [];
-    }
-
-    let rootReport = selectedReport;
-
-    while (rootReport.supersedesReportId) {
-      const parent = reports.find(
-        (report) =>
-          report.id ===
-          rootReport.supersedesReportId
-      );
-
-      if (!parent) {
-        break;
+        next.set(meta.reportId, {
+          reportId: meta.reportId,
+          revision: history.revision,
+          versions: history.versions.map((version) => ({
+            version: version.version,
+            status: version.lifecycle_state === "finalized" ? "finalized" : "draft",
+            createdAt: draftTimes.get(version.version) ?? meta.createdAt,
+            finalizedAt: version.finalized_at ?? version.amended_at,
+            supersedesVersion: version.supersedes ? version.supersedes.version : null,
+            content: readWorkspaceContent(version),
+          })),
+          audit: history.auditEvents.map((event, index) => ({
+            id: event.event_id || `${meta.reportId}-audit-${index}`,
+            type: event.event_type,
+            actor: event.actor,
+            occurredAt: event.occurred_at,
+            version: event.report_version.version,
+          })),
+        });
+      } catch {
+        // Report is no longer retrievable; drop it from the view.
       }
-
-      rootReport = parent;
     }
 
-    const versions: Report[] = [];
+    recordsRef.current = next;
+    setRecords(next);
+  }, [service]);
 
-    function collectVersion(
-      parentId: string
-    ) {
-      const current = reports.find(
-        (report) =>
-          report.id === parentId
-      );
+  useEffect(() => {
+    let active = true;
 
-      if (current) {
-        versions.push(current);
+    async function hydrate() {
+      try {
+        const [state, metadata] = await Promise.all([
+          loadReportWorkspaceState(),
+          loadReportWorkspaceMeta(),
+        ]);
+
+        adapter.restore(state ?? {});
+        metaRef.current = new Map(
+          metadata.map((meta) => [meta.reportId, meta])
+        );
+
+        if (active) await refresh();
+      } catch (error) {
+        console.error("Failed to load saved reports:", error);
       }
+    }
 
-      const children = reports.filter(
-        (report) =>
-          report.supersedesReportId ===
-          parentId
-      );
+    void hydrate();
+    return () => {
+      active = false;
+    };
+  }, [adapter, refresh]);
 
-      children.forEach((child) => {
-        collectVersion(child.id);
+  const addReport = useCallback(
+    async (report: Report): Promise<Report | undefined> => {
+      const created = await service.createDraft({
+        sourceCatalogVersion: WORKSPACE_CATALOG_VERSION,
+        resolvedPayload: buildResolvedPayload(contentFromReport(report)),
+        actor: actorRef.current,
       });
+      const reportId = created.reportVersion.report_id;
+
+      metaRef.current.set(reportId, {
+        reportId,
+        patientId: report.patientId,
+        testId: report.testId,
+        testName: report.testName,
+        department: report.department,
+        createdAt: created.auditEvent.occurred_at,
+      });
+
+      await saveReportWorkspaceMeta({
+        reportId,
+        patientId: report.patientId,
+        testId: report.testId,
+        testName: report.testName,
+        department: report.department,
+        createdAt: created.auditEvent.occurred_at,
+      });
+
+      await refresh();
+      return toReport(recordsRef.current, metaRef.current, makeId(reportId, 1));
+    },
+    [service, refresh]
+  );
+
+  const updateReport = useCallback(
+    async (id: string, updates: Partial<Report>): Promise<void> => {
+      const { reportId, version } = parseId(id);
+      const record = recordsRef.current.get(reportId);
+      const snapshot = record?.versions.find((entry) => entry.version === version);
+      if (!record || !snapshot || snapshot.status !== "draft") return;
+
+      const nextPayload = buildResolvedPayload(contentFromReport(updates, snapshot.content));
+      const currentPayload = buildResolvedPayload(snapshot.content);
+      if (JSON.stringify(nextPayload) === JSON.stringify(currentPayload)) return;
+
+      await service.updateDraft({
+        identity: { report_id: reportId, version },
+        expectedRevision: record.revision,
+        resolvedPayload: nextPayload,
+        actor: actorRef.current,
+      });
+      await refresh();
+    },
+    [service, refresh]
+  );
+
+  const finalizeReport = useCallback(
+    async (id: string): Promise<ValidationResult> => {
+      const { reportId, version } = parseId(id);
+      const record = recordsRef.current.get(reportId);
+      const snapshot = record?.versions.find((entry) => entry.version === version);
+
+      if (!record || !snapshot) {
+        return {
+          valid: false,
+          errors: [{ field: "report", code: "REPORT_NOT_FOUND", message: "Report not found." }],
+        };
+      }
+
+      const errors: ValidationError[] = checkClinicalCompleteness(snapshot.content).map(
+        (issue) => ({ field: issue.field, code: "REQUIRED", message: issue.message })
+      );
+
+      const domain = await service.validate({
+        identity: { report_id: reportId, version },
+      });
+      for (const issue of domain.domainIssues) {
+        errors.push({ field: "report", code: "DOMAIN", message: issue });
+      }
+      for (const issue of domain.referenceIssues) {
+        errors.push({ field: issue.path, code: issue.code, message: issue.message });
+      }
+
+      if (errors.length > 0) return { valid: false, errors };
+
+      try {
+        await service.finalize({
+          identity: { report_id: reportId, version },
+          expectedRevision: record.revision,
+          issueNumber: generateIssueNumber(),
+          issueDate: issueDateFromIso(new Date().toISOString()),
+          actor: actorRef.current,
+        });
+      } catch (error) {
+        return {
+          valid: false,
+          errors: [
+            {
+              field: "report",
+              code: "FINALIZE_FAILED",
+              message: error instanceof Error ? error.message : String(error),
+            },
+          ],
+        };
+      }
+
+      await refresh();
+      return { valid: true, errors: [] };
+    },
+    [service, refresh]
+  );
+
+  const createAmendment = useCallback(
+    async (id: string, amendmentReason: string): Promise<Report | undefined> => {
+      const { reportId, version } = parseId(id);
+      const record = recordsRef.current.get(reportId);
+      const snapshot = record?.versions.find((entry) => entry.version === version);
+      if (!record || !snapshot || snapshot.status !== "finalized") return undefined;
+
+      const amended = await service.amend({
+        baseline: { report_id: reportId, version },
+        expectedRevision: record.revision,
+        actor: actorRef.current,
+        amendmentReason,
+        amendmentType: "correction",
+      });
+      await refresh();
+      return toReport(
+        recordsRef.current,
+        metaRef.current,
+        makeId(reportId, amended.reportVersion.version)
+      );
+    },
+    [service, refresh]
+  );
+
+  const reports = useMemo(() => {
+    const list: Report[] = [];
+    for (const record of records.values()) {
+      const meta = metaRef.current.get(record.reportId);
+      for (const snapshot of record.versions) {
+        list.push(buildReport(record.reportId, snapshot, meta));
+      }
     }
-
-    collectVersion(rootReport.id);
-
-    return versions.sort(
-      (a, b) =>
-        a.version - b.version
+    return list.sort(
+      (left, right) =>
+        new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
     );
-  }
+  }, [records]);
+
+  const getReport = useCallback(
+    (id: string) => reports.find((report) => report.id === id),
+    [reports]
+  );
+
+  const getReportVersions = useCallback(
+    (id: string): Report[] => {
+      const { reportId } = parseId(id);
+      return reports
+        .filter((report) => parseId(report.id).reportId === reportId)
+        .sort((left, right) => left.version - right.version);
+    },
+    [reports]
+  );
+
+  const getAuditTrail = useCallback(
+    (id: string): AuditEntry[] => {
+      const { reportId } = parseId(id);
+      return records.get(reportId)?.audit ?? [];
+    },
+    [records]
+  );
 
   return (
     <ReportContext.Provider
@@ -301,9 +475,10 @@ export function ReportProvider({
         addReport,
         updateReport,
         getReport,
+        finalizeReport,
         createAmendment,
         getReportVersions,
-        validateReportBeforeFinalizing,
+        getAuditTrail,
       }}
     >
       {children}
@@ -311,15 +486,65 @@ export function ReportProvider({
   );
 }
 
+// ========================================
+// DERIVATION HELPERS
+// ========================================
+
+function buildReport(
+  reportId: string,
+  snapshot: VersionSnapshot,
+  meta: ReportMeta | undefined
+): Report {
+  return {
+    id: makeId(reportId, snapshot.version),
+    patientId: meta?.patientId ?? "",
+    specimenType: snapshot.content.specimenType ?? "",
+    clinicalHistory: snapshot.content.clinicalHistory ?? "",
+    findings: snapshot.content.findings ?? "",
+    diagnosis: snapshot.content.diagnosis ?? "",
+    testId: meta?.testId,
+    testName: meta?.testName,
+    department: meta?.department,
+    testResults: (snapshot.content.testResults ?? []).map((result) => ({
+      parameterId: result.parameterId,
+      parameterName: result.parameterName,
+      testId: result.testId ?? "",
+      testName: result.testName ?? meta?.testName ?? "",
+      unit: result.unit ?? "",
+      referenceRange: result.referenceRange,
+      value: result.value ?? "",
+    })),
+    status: snapshot.status,
+    version: snapshot.version,
+    createdAt: snapshot.createdAt,
+    finalizedAt: snapshot.finalizedAt,
+    supersedesReportId:
+      snapshot.supersedesVersion != null
+        ? makeId(reportId, snapshot.supersedesVersion)
+        : undefined,
+  };
+}
+
+function toReport(
+  records: Map<string, ReportRecord>,
+  metas: Map<string, ReportMeta>,
+  id: string
+): Report | undefined {
+  const { reportId, version } = parseId(id);
+  const snapshot = records.get(reportId)?.versions.find((entry) => entry.version === version);
+  if (!snapshot) return undefined;
+  return buildReport(reportId, snapshot, metas.get(reportId));
+}
+
+// ========================================
+// HOOK
+// ========================================
+
 export function useReports() {
-  const context = useContext(
-    ReportContext
-  );
+  const context = useContext(ReportContext);
 
   if (!context) {
-    throw new Error(
-      "useReports must be used inside ReportProvider"
-    );
+    throw new Error("useReports must be used inside ReportProvider");
   }
 
   return context;

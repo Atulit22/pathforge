@@ -107,13 +107,6 @@ function App() {
             "Manage laboratory tests and parameters",
         };
 
-      case "settings":
-        return {
-          title: "Settings",
-          subtitle:
-            "Configure your PathForge workspace",
-        };
-
       default:
         return {
           title: "PathForge",
@@ -174,18 +167,6 @@ function App() {
 
       case "test-management":
         return <TestManagement />;
-
-      case "settings":
-        return (
-          <div className="page-placeholder">
-            <h2>Settings</h2>
-
-            <p>
-              Settings and workspace configuration
-              will be available here.
-            </p>
-          </div>
-        );
 
       default:
         return (

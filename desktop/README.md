@@ -1,8 +1,15 @@
 # PathForge desktop reference
 
-This package is the working Windows-style application mock used to guide the
-Tauri implementation. It is React + TypeScript + Vite + Tailwind CSS, with
-shadcn-style local components, React Hook Form, Zod, Vitest, and Playwright.
+> **Frozen reference — not the active app.** The canonical product is the
+> React + Tauri app at the repository root (`src/`, run with `npm run tauri
+> dev`). This package is kept only as UX reference for the result-entry
+> workflow, dense tables, keyboard navigation, review step, and result flags.
+> It has its own `package.json`/lockfile and is intentionally excluded from the
+> root `npm run verify` and CI. Do not add features here.
+
+This package is the working Windows-style application mock originally used to
+guide the Tauri implementation. It is React + TypeScript + Vite + Tailwind CSS,
+with shadcn-style local components, React Hook Form, Zod, Vitest, and Playwright.
 
 ```sh
 npm ci

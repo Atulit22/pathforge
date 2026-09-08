@@ -7,7 +7,7 @@ import App from "./App";
 
 import { AuthProvider } from "./store/AuthContext";
 import { PatientProvider } from "./store/PatientContext";
-import  TestProvider  from "./store/TestContext";
+import { TestProvider } from "./store/TestContext";
 import { ReportProvider } from "./store/ReportContext";
 
 createRoot(document.getElementById("root")!).render(

@@ -1,292 +1,139 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Swal from "sweetalert2";
-import {
-  FilePlus2,
-  Save,
-  FlaskConical,
-} from "lucide-react";
+import { FilePlus2, Save, FlaskConical } from "lucide-react";
 
-import {
-  usePatients,
-} from "../store/PatientContext";
+import { usePatients } from "../store/PatientContext";
+import { useReports, type Report, type TestResult } from "../store/ReportContext";
+import { useTests } from "../store/TestContext";
+import type { LaboratoryTest, TestParameter } from "../domain/types";
+import { formatReferenceRange } from "../components/report/referenceRange";
 
-import {
-  useReports,
-  type Report,
-} from "../store/ReportContext";
+/** Result-state key: unique per (test, parameter) so panels never collide. */
+function resultKey(testId: string, parameterId: string): string {
+  return `${testId}::${parameterId}`;
+}
 
-import {
-  useTests,
-} from "../store/TestContext";
-
+function distinct(values: string[]): string[] {
+  return [...new Set(values.filter((value) => value.trim() !== ""))];
+}
 
 export default function NewReport() {
-
   const { patients } = usePatients();
-
   const { addReport } = useReports();
-
   const { tests } = useTests();
 
+  const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+  const [results, setResults] = useState<Record<string, string>>({});
+  const [formData, setFormData] = useState({
+    patientId: "",
+    specimenType: "",
+    clinicalHistory: "",
+    diagnosis: "",
+    findings: "",
+  });
 
-  /* =========================================
-     STATE
-  ========================================= */
-
-  const [selectedTestId, setSelectedTestId] =
-    useState("");
-
-  const [testResults, setTestResults] =
-    useState<Record<string, string>>({});
-
-  const [formData, setFormData] =
-    useState({
-      patientId: "",
-      specimenType: "",
-      clinicalHistory: "",
-      diagnosis: "",
-      findings: "",
-    });
-
-
-  /* =========================================
-     SELECTED TEST
-  ========================================= */
-
-  const selectedTest = tests.find(
-    (test) =>
-      test.id === selectedTestId
+  const selectedTests = useMemo(
+    () =>
+      selectedTestIds
+        .map((id) => tests.find((test) => test.id === id))
+        .filter((test): test is LaboratoryTest => test !== undefined),
+    [selectedTestIds, tests]
   );
-
-
-  /* =========================================
-     FORM CHANGE
-  ========================================= */
 
   function handleChange(
     event: React.ChangeEvent<
-      | HTMLInputElement
-      | HTMLTextAreaElement
-      | HTMLSelectElement
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) {
-
-    const {
-      name,
-      value,
-    } = event.target;
-
-    setFormData((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+    const { name, value } = event.target;
+    setFormData((previous) => ({ ...previous, [name]: value }));
   }
 
+  function toggleTest(testId: string) {
+    setSelectedTestIds((previous) =>
+      previous.includes(testId)
+        ? previous.filter((id) => id !== testId)
+        : [...previous, testId]
+    );
 
-  /* =========================================
-     TEST CHANGE
-  ========================================= */
-
-  function handleTestChange(
-    event: React.ChangeEvent<HTMLSelectElement>
-  ) {
-
-    const testId = event.target.value;
-
-    setSelectedTestId(testId);
-
-    // Reset previous results when test changes
-    setTestResults({});
+    // Drop any entered values for a test that was just removed.
+    setResults((previous) => {
+      if (!selectedTestIds.includes(testId)) return previous;
+      const next: Record<string, string> = {};
+      for (const [key, value] of Object.entries(previous)) {
+        if (!key.startsWith(`${testId}::`)) next[key] = value;
+      }
+      return next;
+    });
   }
-
-
-  /* =========================================
-     RESULT CHANGE
-  ========================================= */
 
   function handleResultChange(
+    testId: string,
     parameterId: string,
     value: string
   ) {
-
-    setTestResults((previous) => ({
+    setResults((previous) => ({
       ...previous,
-      [parameterId]: value,
+      [resultKey(testId, parameterId)]: value,
     }));
   }
 
-
-  /* =========================================
-     GET REFERENCE RANGE
-  ========================================= */
-
-  function getReferenceRange(parameter: any) {
-
-    if (!parameter.referenceRange) {
-      return "—";
-    }
-
-    if (parameter.referenceRange.text) {
-      return parameter.referenceRange.text;
-    }
-
-    const values = [
-      parameter.referenceRange.min,
-      parameter.referenceRange.max,
-    ].filter(
-      (value) =>
-        value !== undefined &&
-        value !== null &&
-        value !== ""
-    );
-
-    if (values.length === 0) {
-      return "—";
-    }
-
-    return values.join(" – ");
-  }
-
-
-  /* =========================================
-     SUBMIT REPORT
-  ========================================= */
-
-  function handleSubmit(
-    event: React.FormEvent<HTMLFormElement>
-  ) {
-
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-
-    /* VALIDATION */
-
     if (!formData.patientId) {
-
       Swal.fire("Please select a patient.");
-
       return;
     }
-
-
-    if (!selectedTest) {
-
-      Swal.fire(
-        "Please select a laboratory test."
-      );
-
+    if (selectedTests.length === 0) {
+      Swal.fire("Please select at least one laboratory test.");
       return;
     }
-
-
     if (!formData.specimenType) {
-
-      Swal.fire(
-        "Please enter the specimen type."
-      );
-
+      Swal.fire("Please enter the specimen type.");
       return;
     }
 
-
-    /* =========================================
-       CREATE TEST RESULT SNAPSHOT
-
-       This keeps historical reports unchanged
-       even if an administrator later modifies
-       the laboratory test configuration.
-    ========================================= */
-
-    const reportTestResults =
-      selectedTest.parameters.map(
-        (parameter) => ({
-
-          parameterId:
-            parameter.id,
-
-          parameterName:
-            parameter.name,
-
-          unit:
-            parameter.unit ?? "",
-
-          referenceRange:
-            parameter.referenceRange,
-
-          value:
-            testResults[
-              parameter.id
-            ] ?? "",
-
-        })
-      );
-
-
-    /* =========================================
-       CREATE REPORT
-    ========================================= */
+    // Snapshot every selected test's parameters so the report stays stable even
+    // if an administrator later edits the test configuration.
+    const reportTestResults: TestResult[] = selectedTests.flatMap((test) =>
+      test.parameters.map((parameter) => ({
+        parameterId: parameter.id,
+        parameterName: parameter.name,
+        testId: test.id,
+        testName: test.name,
+        unit: parameter.unit ?? "",
+        referenceRange: parameter.referenceRange,
+        value: results[resultKey(test.id, parameter.id)] ?? "",
+      }))
+    );
 
     const newReport: Report = {
-
-      id:
-        crypto.randomUUID(),
-
-      patientId:
-        formData.patientId,
-
-      specimenType:
-        formData.specimenType,
-
-      clinicalHistory:
-        formData.clinicalHistory,
-
-      findings:
-        formData.findings,
-
-      diagnosis:
-        formData.diagnosis,
-
-
-      /* TEST INFORMATION */
-
-      testId:
-        selectedTest.id,
-
-      testName:
-        selectedTest.name,
-
-      department:
-        selectedTest.department,
-
-
-      /* TEST RESULTS */
-
-      testResults:
-        reportTestResults,
-
-
-      /* REPORT STATUS */
-
-      status:
-        "draft",
-
-      version:
-        1,
-
-      createdAt:
-        new Date().toISOString(),
-
+      id: crypto.randomUUID(),
+      patientId: formData.patientId,
+      specimenType: formData.specimenType,
+      clinicalHistory: formData.clinicalHistory,
+      findings: formData.findings,
+      diagnosis: formData.diagnosis,
+      testId: selectedTests.map((test) => test.id).join(","),
+      testName: selectedTests.map((test) => test.name).join(", "),
+      department: distinct(selectedTests.map((test) => test.department)).join(", "),
+      testResults: reportTestResults,
+      status: "draft",
+      version: 1,
+      createdAt: new Date().toISOString(),
     };
 
-
-    /* =========================================
-       SAVE REPORT
-    ========================================= */
-
-    addReport(newReport);
-
-
-    /* RESET FORM */
+    try {
+      await addReport(newReport);
+    } catch (error) {
+      Swal.fire(
+        error instanceof Error
+          ? `Could not save the report: ${error.message}`
+          : "Could not save the report."
+      );
+      return;
+    }
 
     setFormData({
       patientId: "",
@@ -295,281 +142,110 @@ export default function NewReport() {
       diagnosis: "",
       findings: "",
     });
+    setSelectedTestIds([]);
+    setResults({});
 
-
-    setSelectedTestId("");
-
-    setTestResults({});
-
-
-    Swal.fire(
-      "Laboratory report saved as draft!"
-    );
+    Swal.fire("Laboratory report saved as draft!");
   }
 
-
-  /* =========================================
-     UI
-  ========================================= */
-
   return (
-
     <div className="new-report-page">
-
-
-      {/* =====================================
-          PAGE HEADER
-      ====================================== */}
-
       <div className="report-page-header">
-
         <div>
-
-          <h2>
-            Create New Report
-          </h2>
-
-          <p>
-            Create a laboratory report for a patient.
-          </p>
-
+          <h2>Create New Report</h2>
+          <p>Create a laboratory report for a patient.</p>
         </div>
-
       </div>
 
-
-      <form
-        className="report-form"
-        onSubmit={handleSubmit}
-      >
-
-
-        {/* =====================================
-            PATIENT INFORMATION
-        ====================================== */}
-
+      <form className="report-form" onSubmit={handleSubmit}>
+        {/* Patient */}
         <div className="report-section">
-
           <div className="section-title">
-
             <FilePlus2 size={20} />
-
             <div>
-
-              <h3>
-                Patient Information
-              </h3>
-
-              <p>
-                Select the patient for this report
-              </p>
-
+              <h3>Patient Information</h3>
+              <p>Select the patient for this report</p>
             </div>
-
           </div>
 
-
           <div className="form-group">
-
-            <label>
-              Select Patient
-            </label>
-
+            <label>Select Patient</label>
             <select
               name="patientId"
               value={formData.patientId}
               onChange={handleChange}
             >
-
-              <option value="">
-                Select a patient
-              </option>
-
-
-              {patients.map(
-                (patient) => (
-
-                  <option
-                    key={patient.id}
-                    value={patient.id}
-                  >
-
-                    {patient.name}
-                    {" — "}
-                    {patient.patientId}
-
-                  </option>
-
-                )
-              )}
-
+              <option value="">Select a patient</option>
+              {patients.map((patient) => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.name} — {patient.patientId}
+                </option>
+              ))}
             </select>
-
           </div>
-
         </div>
 
-
-
-        {/* =====================================
-            TEST SELECTION
-        ====================================== */}
-
+        {/* Test selection */}
         <div className="report-section">
-
           <div className="section-title">
-
             <FlaskConical size={20} />
-
             <div>
-
-              <h3>
-                Laboratory Test
-              </h3>
-
-              <p>
-                Select a test configured by the administrator
-              </p>
-
+              <h3>Laboratory Tests</h3>
+              <p>Select one or more tests to include in this report</p>
             </div>
-
           </div>
 
-
-          <div className="form-group">
-
-            <label>
-              Select Test
-            </label>
-
-            <select
-              value={selectedTestId}
-              onChange={handleTestChange}
-            >
-
-              <option value="">
-                Select a laboratory test
-              </option>
-
-
-              {tests.map(
-                (test) => (
-
-                  <option
+          {tests.length === 0 ? (
+            <p className="form-hint">
+              No laboratory tests configured yet. Add tests under Test Management
+              first.
+            </p>
+          ) : (
+            <div className="test-picker">
+              {tests.map((test) => {
+                const checked = selectedTestIds.includes(test.id);
+                return (
+                  <label
                     key={test.id}
-                    value={test.id}
+                    className={`test-picker-item${checked ? " is-selected" : ""}`}
                   >
-
-                    {test.department}
-                    {" — "}
-                    {test.name}
-
-                  </option>
-
-                )
-              )}
-
-            </select>
-
-          </div>
-
-
-          {/* =====================================
-              SELECTED TEST INFORMATION
-          ====================================== */}
-
-          {selectedTest && (
-
-            <div className="selected-test-info">
-
-              {/* BLUE ACCENT */}
-
-              <div className="selected-test-accent" />
-
-
-              {/* CONTENT */}
-
-              <div className="selected-test-content">
-
-
-                {/* TEST NAME */}
-
-                <div className="selected-test-main">
-
-                  <span className="selected-test-label">
-                    Selected Test
-                  </span>
-
-                  <h4>
-                    {selectedTest.name}
-                  </h4>
-
-                </div>
-
-
-                {/* TEST META */}
-
-                <div className="selected-test-meta">
-
-                  <span className="department-badge">
-                    {selectedTest.department}
-                  </span>
-
-                  <span className="parameter-count">
-
-                    {selectedTest.parameters.length}
-
-                    {" "}
-
-                    {selectedTest.parameters.length === 1
-                      ? "Parameter"
-                      : "Parameters"}
-
-                  </span>
-
-                </div>
-
-              </div>
-
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleTest(test.id)}
+                    />
+                    <span className="test-picker-name">{test.name}</span>
+                    <span className="test-picker-meta">
+                      {test.department} · {test.parameters.length}{" "}
+                      {test.parameters.length === 1 ? "parameter" : "parameters"}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
-
           )}
 
+          {selectedTests.length > 0 && (
+            <p className="form-hint">
+              {selectedTests.length}{" "}
+              {selectedTests.length === 1 ? "test" : "tests"} selected:{" "}
+              {selectedTests.map((test) => test.name).join(", ")}
+            </p>
+          )}
         </div>
 
-
-
-        {/* =====================================
-            SPECIMEN DETAILS
-        ====================================== */}
-
+        {/* Specimen */}
         <div className="report-section">
-
           <div className="section-title">
-
             <FilePlus2 size={20} />
-
             <div>
-
-              <h3>
-                Specimen Details
-              </h3>
-
-              <p>
-                Enter specimen and clinical information
-              </p>
-
+              <h3>Specimen Details</h3>
+              <p>Enter specimen and clinical information</p>
             </div>
-
           </div>
 
-
           <div className="form-group">
-
-            <label>
-              Specimen Type
-            </label>
-
+            <label>Specimen Type</label>
             <input
               type="text"
               name="specimenType"
@@ -577,16 +253,10 @@ export default function NewReport() {
               value={formData.specimenType}
               onChange={handleChange}
             />
-
           </div>
 
-
           <div className="form-group">
-
-            <label>
-              Clinical History
-            </label>
-
+            <label>Clinical History</label>
             <textarea
               name="clinicalHistory"
               placeholder="Enter relevant clinical history..."
@@ -594,177 +264,49 @@ export default function NewReport() {
               onChange={handleChange}
               rows={4}
             />
-
           </div>
-
         </div>
 
-
-
-        {/* =====================================
-            TEST RESULTS
-        ====================================== */}
-
-        {selectedTest && (
-
-          <div className="report-section test-results-section">
-
+        {/* Results — one table per selected test */}
+        {selectedTests.map((test) => (
+          <div
+            key={test.id}
+            className="report-section test-results-section"
+          >
             <div className="section-title">
-
               <FlaskConical size={20} />
-
               <div>
-
-                <h3>
-                  Test Results
-                </h3>
-
+                <h3>{test.name} — Results</h3>
                 <p>
-                  Enter results for {selectedTest.name}
+                  {test.department} · enter results for each parameter below
                 </p>
-
               </div>
-
             </div>
 
-
-            {/* PROFESSIONAL RESULTS TABLE */}
-
-            <div className="results-table-wrapper">
-
-              <table className="results-table">
-
-                <thead>
-
-                  <tr>
-
-                    <th>
-                      Parameter
-                    </th>
-
-                    <th>
-                      Result
-                    </th>
-
-                    <th>
-                      Unit
-                    </th>
-
-                    <th>
-                      Reference Range
-                    </th>
-
-                  </tr>
-
-                </thead>
-
-
-                <tbody>
-
-                  {selectedTest.parameters.map(
-                    (parameter) => (
-
-                      <tr key={parameter.id}>
-
-
-                        {/* PARAMETER */}
-
-                        <td className="parameter-cell">
-
-                          {parameter.name}
-
-                        </td>
-
-
-                        {/* RESULT INPUT */}
-
-                        <td className="result-cell">
-
-                          <input
-                            type="text"
-                            placeholder="Enter result"
-                            value={
-                              testResults[
-                                parameter.id
-                              ] ?? ""
-                            }
-                            onChange={(event) =>
-                              handleResultChange(
-                                parameter.id,
-                                event.target.value
-                              )
-                            }
-                          />
-
-                        </td>
-
-
-                        {/* UNIT */}
-
-                        <td className="unit-cell">
-
-                          {parameter.unit ?? "—"}
-
-                        </td>
-
-
-                        {/* REFERENCE RANGE */}
-
-                        <td className="reference-cell">
-
-                          {getReferenceRange(parameter)}
-
-                        </td>
-
-
-                      </tr>
-
-                    )
-                  )}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
+            <ParameterEntryTable
+              parameters={test.parameters}
+              valueFor={(parameterId) =>
+                results[resultKey(test.id, parameterId)] ?? ""
+              }
+              onChange={(parameterId, value) =>
+                handleResultChange(test.id, parameterId, value)
+              }
+            />
           </div>
+        ))}
 
-        )}
-
-
-
-        {/* =====================================
-            REPORT NOTES
-        ====================================== */}
-
+        {/* Notes */}
         <div className="report-section">
-
           <div className="section-title">
-
             <FilePlus2 size={20} />
-
             <div>
-
-              <h3>
-                Report Notes
-              </h3>
-
-              <p>
-                Additional findings and diagnosis
-              </p>
-
+              <h3>Report Notes</h3>
+              <p>Additional findings and diagnosis</p>
             </div>
-
           </div>
-
 
           <div className="form-group">
-
-            <label>
-              Findings
-            </label>
-
+            <label>Findings</label>
             <textarea
               name="findings"
               placeholder="Enter findings..."
@@ -772,16 +314,10 @@ export default function NewReport() {
               onChange={handleChange}
               rows={6}
             />
-
           </div>
 
-
           <div className="form-group">
-
-            <label>
-              Diagnosis
-            </label>
-
+            <label>Diagnosis</label>
             <textarea
               name="diagnosis"
               placeholder="Enter final diagnosis..."
@@ -789,37 +325,64 @@ export default function NewReport() {
               onChange={handleChange}
               rows={4}
             />
-
           </div>
-
         </div>
-
-
-
-        {/* =====================================
-            ACTIONS
-        ====================================== */}
 
         <div className="report-actions">
-
-          <button
-            type="submit"
-            className="primary-button"
-          >
-
+          <button type="submit" className="primary-button">
             <Save size={18} />
-
             Save Draft
-
           </button>
-
         </div>
-
-
       </form>
-
     </div>
-
   );
+}
 
+interface ParameterEntryTableProps {
+  parameters: TestParameter[];
+  valueFor: (parameterId: string) => string;
+  onChange: (parameterId: string, value: string) => void;
+}
+
+function ParameterEntryTable({
+  parameters,
+  valueFor,
+  onChange,
+}: ParameterEntryTableProps) {
+  return (
+    <div className="results-table-wrapper">
+      <table className="results-table">
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Result</th>
+            <th>Unit</th>
+            <th>Reference Range</th>
+          </tr>
+        </thead>
+        <tbody>
+          {parameters.map((parameter) => (
+            <tr key={parameter.id}>
+              <td className="parameter-cell">{parameter.name}</td>
+              <td className="result-cell">
+                <input
+                  type="text"
+                  placeholder="Enter result"
+                  value={valueFor(parameter.id)}
+                  onChange={(event) =>
+                    onChange(parameter.id, event.target.value)
+                  }
+                />
+              </td>
+              <td className="unit-cell">{parameter.unit ?? "—"}</td>
+              <td className="reference-cell">
+                {formatReferenceRange(parameter.referenceRange)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }

@@ -2,6 +2,7 @@ import { reportVersionKey } from '../domain/index.mjs';
 import { immutableCopy } from './internal.mjs';
 
 /** @typedef {{revision: number, versions: Map<string, import('../domain/contracts.mjs').ReportVersion>}} StoredReport */
+/** @typedef {{reports?: Array<{reportId: string, revision: number, versions: import('../domain/contracts.mjs').ReportVersion[]}>, audit?: Array<{reportId: string, events: import('./ports.mjs').ServiceAuditEvent[]}>}} PersistedServiceState */
 
 /** @param {StoredReport | undefined} stored */
 function copyStoredReport(stored) {
@@ -108,7 +109,11 @@ function createReferenceRepository(catalogs) {
 /**
  * Transactional memory adapter for contract tests and local development only.
  * It deliberately makes no durability or restart/recovery guarantee.
- * @param {{catalogs?: ReadonlyArray<import('../domain/contracts.mjs').Catalog>}} [options]
+ * @param {{
+ *   catalogs?: ReadonlyArray<import('../domain/contracts.mjs').Catalog>,
+ *   initialState?: PersistedServiceState,
+ *   onCommit?: (state: Required<PersistedServiceState>) => Promise<void> | void
+ * }} [options]
  */
 export function createInMemoryServiceAdapter(options = {}) {
   /** @type {Map<string, StoredReport>} */
@@ -117,6 +122,42 @@ export function createInMemoryServiceAdapter(options = {}) {
   const storedAudit = new Map();
   /** @type {Map<string, Promise<void>>} */
   const transactionTails = new Map();
+
+  /** @returns {Required<PersistedServiceState>} */
+  function snapshot() {
+    return {
+      reports: [...storedReports.entries()].map(([reportId, stored]) => ({
+        reportId,
+        revision: stored.revision,
+        versions: [...stored.versions.values()].map((version) => immutableCopy(version)),
+      })),
+      audit: [...storedAudit.entries()].map(([reportId, events]) => ({
+        reportId,
+        events: events.map((event) => immutableCopy(event)),
+      })),
+    };
+  }
+
+  /** @param {PersistedServiceState | undefined} state */
+  function restore(state) {
+    storedReports.clear();
+    storedAudit.clear();
+    for (const report of state?.reports ?? []) {
+      const versions = new Map();
+      for (const version of report.versions ?? []) {
+        versions.set(reportVersionKey(version), immutableCopy(version));
+      }
+      storedReports.set(report.reportId, { revision: report.revision, versions });
+    }
+    for (const entry of state?.audit ?? []) {
+      storedAudit.set(
+        entry.reportId,
+        (entry.events ?? []).map((event) => immutableCopy(event)),
+      );
+    }
+  }
+
+  restore(options.initialState ?? {});
 
   /** @type {import('./ports.mjs').ReportRepository} */
   const reportRepository = {
@@ -184,6 +225,7 @@ export function createInMemoryServiceAdapter(options = {}) {
         const result = await work({ reports: transactionalReports, audit: transactionalAudit });
         storedReports.set(reportId, workingReport);
         storedAudit.set(reportId, workingAudit);
+        await options.onCommit?.(snapshot());
         return result;
       } finally {
         release();
@@ -197,6 +239,8 @@ export function createInMemoryServiceAdapter(options = {}) {
     auditRepository,
     unitOfWork,
     referenceRepository: createReferenceRepository(options.catalogs ?? []),
+    snapshot,
+    restore,
   });
 }
 

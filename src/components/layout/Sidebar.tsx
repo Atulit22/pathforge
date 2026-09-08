@@ -4,7 +4,6 @@ import {
   ClipboardList,
   FilePlus2,
   History,
-  Settings,
   Stethoscope,
   FlaskConical,
   LogOut,
@@ -18,8 +17,7 @@ export type Page =
   | "worklist"
   | "new-report"
   | "history"
-  | "test-management"
-  | "settings";
+  | "test-management";
 
 interface SidebarProps {
   activePage: Page;
@@ -58,16 +56,11 @@ export default function Sidebar({
   activePage,
   onNavigate,
 }: SidebarProps) {
-  const {
-    isAdmin,
-    logout,
-  } = useAuth();
+  const { isAdmin, logout, user } = useAuth();
 
   return (
     <aside className="sidebar">
-
       {/* BRAND */}
-
       <div className="brand">
         <div className="brand-icon">
           <Stethoscope size={22} />
@@ -80,12 +73,8 @@ export default function Sidebar({
       </div>
 
       {/* NAVIGATION */}
-
       <nav className="navigation">
-
-        <p className="nav-label">
-          WORKSPACE
-        </p>
+        <p className="nav-label">WORKSPACE</p>
 
         {navigation.map((item) => {
           const Icon = item.icon;
@@ -95,30 +84,22 @@ export default function Sidebar({
               key={item.id}
               type="button"
               className={`nav-item ${
-                activePage === item.id
-                  ? "active"
-                  : ""
+                activePage === item.id ? "active" : ""
               }`}
               onClick={() => onNavigate(item.id)}
             >
               <Icon size={19} />
-
-              <span>
-                {item.label}
-              </span>
+              <span>{item.label}</span>
             </button>
           );
         })}
 
         {/* ADMIN ONLY */}
-
         {isAdmin && (
           <>
             <div className="nav-divider" />
 
-            <p className="nav-label">
-              ADMINISTRATION
-            </p>
+            <p className="nav-label">CATALOG</p>
 
             <button
               type="button"
@@ -132,59 +113,31 @@ export default function Sidebar({
               }
             >
               <FlaskConical size={19} />
-
-              <span>
-                Test Management
-              </span>
+              <span>Test Management</span>
             </button>
+
+            <div className="nav-divider" />
           </>
         )}
-
-        <div className="nav-divider" />
-
-        {/* SETTINGS */}
-
-        <button
-          type="button"
-          className={`nav-item ${
-            activePage === "settings"
-              ? "active"
-              : ""
-          }`}
-          onClick={() =>
-            onNavigate("settings")
-          }
-        >
-          <Settings size={19} />
-
-          <span>
-            Settings
-          </span>
-        </button>
-
       </nav>
 
-      {/* SIDEBAR FOOTER */}
-
+      {/* FOOTER */}
       <div className="sidebar-bottom">
-
         <div className="sidebar-footer">
           <div className="status-dot" />
 
           <div>
             <strong>
-              Local Workspace
+              {user?.email || "Signed in"}
             </strong>
 
             <span>
               {isAdmin
-                ? "Administrator Mode"
-                : "Employee Mode"}
+                ? "Administrator"
+                : "Clinical Workspace"}
             </span>
           </div>
         </div>
-
-        {/* LOGOUT */}
 
         <button
           type="button"
@@ -192,14 +145,9 @@ export default function Sidebar({
           onClick={logout}
         >
           <LogOut size={18} />
-
-          <span>
-            Logout
-          </span>
+          <span>Logout</span>
         </button>
-
       </div>
-
     </aside>
   );
 }

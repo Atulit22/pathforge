@@ -1,0 +1,295 @@
+/**
+ * Bridge between the React workspace shapes (patient-facing narrative fields plus
+ * a table of laboratory results) and the canonical domain `resolved_payload`
+ * snapshot consumed by `src/domain` and `src/service`.
+ *
+ * The domain deliberately knows nothing about patients, catalogs of tests, or
+ * UI form state. This module is the single place that maps between the two so the
+ * React layer can delegate every lifecycle decision to `createReportService`
+ * instead of re-implementing validation, immutability, lineage, and audit.
+ */
+
+/**
+ * @typedef {{min?: number, max?: number, text?: string}} WorkspaceReferenceRange
+ */
+
+/**
+ * @typedef {{
+ *   parameterId: string,
+ *   parameterName: string,
+ *   testId?: string,
+ *   testName?: string,
+ *   unit?: string,
+ *   value?: string,
+ *   referenceRange?: WorkspaceReferenceRange
+ * }} WorkspaceTestResult
+ */
+
+/**
+ * @typedef {{
+ *   specimenType?: string,
+ *   clinicalHistory?: string,
+ *   findings?: string,
+ *   diagnosis?: string,
+ *   testResults?: WorkspaceTestResult[]
+ * }} WorkspaceReportContent
+ */
+
+/** Catalog version stamped onto every locally-authored payload entry. */
+export const WORKSPACE_CATALOG_VERSION = 'workspace';
+
+/** Prefix marking a payload key that came from a laboratory-test parameter. */
+export const RESULT_FIELD_PREFIX = 'result.';
+
+/** @typedef {'specimenType' | 'clinicalHistory' | 'findings' | 'diagnosis'} NarrativeKey */
+
+/**
+ * Narrative sections, in report order. `[field_id, display, contentKey]`.
+ * @type {ReadonlyArray<readonly [string, string, NarrativeKey]>}
+ */
+export const NARRATIVE_FIELDS = [
+  ['narrative.specimen_type', 'Specimen Type', 'specimenType'],
+  ['narrative.clinical_history', 'Clinical History', 'clinicalHistory'],
+  ['narrative.findings', 'Microscopic Findings', 'findings'],
+  ['narrative.diagnosis', 'Diagnosis', 'diagnosis'],
+];
+
+/** @param {unknown} value @returns {string} */
+function asText(value) {
+  return typeof value === 'string' ? value : '';
+}
+
+/** @param {WorkspaceReferenceRange | undefined} range */
+function toDomainReferenceRange(range) {
+  if (!range) return undefined;
+  /** @type {{low?: number, high?: number}} */
+  const bounds = {};
+  if (typeof range.min === 'number' && Number.isFinite(range.min)) bounds.low = range.min;
+  if (typeof range.max === 'number' && Number.isFinite(range.max)) bounds.high = range.max;
+  return bounds.low === undefined && bounds.high === undefined ? undefined : bounds;
+}
+
+/**
+ * @param {Record<string, unknown> | undefined} entry
+ * @returns {WorkspaceReferenceRange | undefined}
+ */
+function fromDomainReferenceRange(entry) {
+  if (!entry) return undefined;
+  const range = /** @type {{low?: number, high?: number} | undefined} */ (entry.reference_range);
+  if (range && (typeof range.low === 'number' || typeof range.high === 'number')) {
+    /** @type {WorkspaceReferenceRange} */
+    const result = {};
+    if (typeof range.low === 'number') result.min = range.low;
+    if (typeof range.high === 'number') result.max = range.high;
+    return result;
+  }
+  if (typeof entry.reference_text === 'string' && entry.reference_text.trim()) {
+    return { text: entry.reference_text };
+  }
+  return undefined;
+}
+
+/**
+ * Build a canonical `resolved_payload` from workspace content. Every value is a
+ * string (empty when not yet entered) so a partial draft still validates
+ * structurally; clinical completeness is checked separately at finalize time.
+ * @param {WorkspaceReportContent} content
+ * @returns {import('./contracts.mjs').ResolvedPayload}
+ */
+export function buildResolvedPayload(content) {
+  /** @type {Record<string, Record<string, unknown>>} */
+  const payload = {};
+
+  for (const [fieldId, display, key] of NARRATIVE_FIELDS) {
+    payload[fieldId] = {
+      field_id: fieldId,
+      display,
+      kind: 'narrative',
+      value: asText(content[key]),
+      source_catalog_version: WORKSPACE_CATALOG_VERSION,
+    };
+  }
+
+  for (const result of content.testResults ?? []) {
+    const testId = typeof result.testId === 'string' ? result.testId.trim() : '';
+    const fieldId = testId
+      ? `${RESULT_FIELD_PREFIX}${testId}::${result.parameterId}`
+      : `${RESULT_FIELD_PREFIX}${result.parameterId}`;
+    /** @type {Record<string, unknown>} */
+    const entry = {
+      field_id: fieldId,
+      display: result.parameterName || result.parameterId,
+      kind: 'result',
+      value: asText(result.value),
+      parameter_id: result.parameterId,
+      source_catalog_version: WORKSPACE_CATALOG_VERSION,
+    };
+    if (testId) entry.test_id = testId;
+    if (typeof result.testName === 'string' && result.testName.trim()) {
+      entry.test_name = result.testName.trim();
+    }
+    if (typeof result.unit === 'string' && result.unit.trim()) entry.unit = result.unit;
+    const range = toDomainReferenceRange(result.referenceRange);
+    if (range) entry.reference_range = range;
+    else if (result.referenceRange?.text?.trim()) {
+      entry.reference_text = result.referenceRange.text;
+    }
+    payload[fieldId] = entry;
+  }
+
+  return /** @type {import('./contracts.mjs').ResolvedPayload} */ (payload);
+}
+
+/**
+ * Reverse of {@link buildResolvedPayload}: recover editable workspace content
+ * from a stored report version.
+ * @param {{resolved_payload?: Record<string, Record<string, unknown>>}} reportVersion
+ * @returns {Required<Omit<WorkspaceReportContent, 'testResults'>> & {testResults: WorkspaceTestResult[]}}
+ */
+export function readWorkspaceContent(reportVersion) {
+  const payload = reportVersion.resolved_payload ?? {};
+
+  const narrative = { specimenType: '', clinicalHistory: '', findings: '', diagnosis: '' };
+  for (const [fieldId, , key] of NARRATIVE_FIELDS) {
+    narrative[key] = asText(payload[fieldId]?.value);
+  }
+
+  /** @type {WorkspaceTestResult[]} */
+  const testResults = [];
+  for (const [fieldId, entry] of Object.entries(payload)) {
+    if (!fieldId.startsWith(RESULT_FIELD_PREFIX)) continue;
+    const rest = fieldId.slice(RESULT_FIELD_PREFIX.length);
+    const separator = rest.indexOf('::');
+    const parsedParameterId = separator === -1 ? rest : rest.slice(separator + 2);
+    /** @type {WorkspaceTestResult} */
+    const result = {
+      parameterId: asText(entry.parameter_id) || parsedParameterId,
+      parameterName: asText(entry.display),
+      value: asText(entry.value),
+    };
+    if (typeof entry.test_id === 'string' && entry.test_id) result.testId = entry.test_id;
+    if (typeof entry.test_name === 'string' && entry.test_name) result.testName = entry.test_name;
+    if (typeof entry.unit === 'string') result.unit = entry.unit;
+    const range = fromDomainReferenceRange(entry);
+    if (range) result.referenceRange = range;
+    testResults.push(result);
+  }
+
+  return {
+    specimenType: narrative.specimenType,
+    clinicalHistory: narrative.clinicalHistory,
+    findings: narrative.findings,
+    diagnosis: narrative.diagnosis,
+    testResults,
+  };
+}
+
+/**
+ * Clinical-completeness gate applied before finalization. This is intentionally
+ * separate from the domain's structural validation: a draft is allowed to be
+ * incomplete, a finalized report is not.
+ * @param {WorkspaceReportContent} content
+ * @returns {{field: string, message: string}[]}
+ */
+export function checkClinicalCompleteness(content) {
+  /** @type {{field: string, message: string}[]} */
+  const issues = [];
+  if (!asText(content.specimenType).trim()) {
+    issues.push({ field: 'specimenType', message: 'Specimen type is required.' });
+  }
+  if (!asText(content.findings).trim()) {
+    issues.push({ field: 'findings', message: 'Microscopic findings are required.' });
+  }
+  if (!asText(content.diagnosis).trim()) {
+    issues.push({ field: 'diagnosis', message: 'Diagnosis is required.' });
+  }
+  if (asText(content.clinicalHistory).length > 5000) {
+    issues.push({ field: 'clinicalHistory', message: 'Clinical history cannot exceed 5000 characters.' });
+  }
+  for (const result of content.testResults ?? []) {
+    if (!asText(result.value).trim()) {
+      const testId = typeof result.testId === 'string' ? result.testId.trim() : '';
+      issues.push({
+        field: testId ? `result.${testId}::${result.parameterId}` : `result.${result.parameterId}`,
+        message: result.testName
+          ? `Result for "${result.parameterName || result.parameterId}" (${result.testName}) is required.`
+          : `Result for "${result.parameterName || result.parameterId}" is required.`,
+      });
+    }
+  }
+  return issues;
+}
+
+/**
+ * A stable-shaped, presentation-neutral grouping for the report preview and PDF.
+ * Works for drafts and finalized versions alike.
+ * @param {{
+ *   resolved_payload?: Record<string, Record<string, unknown>>,
+ *   version?: number,
+ *   lifecycle_state?: string,
+ *   issue_number?: string,
+ *   issue_date?: string
+ * }} reportVersion
+ */
+export function groupForPreview(reportVersion) {
+  const content = readWorkspaceContent(reportVersion);
+
+  const results = content.testResults.map((result) => ({
+    name: result.parameterName,
+    value: result.value ?? '',
+    unit: result.unit ?? '',
+    reference: referenceLabel(result.referenceRange),
+  }));
+
+  /** @type {{testName: string | null, rows: typeof results}[]} */
+  const resultGroups = [];
+  const groupIndex = new Map();
+  content.testResults.forEach((result, index) => {
+    const key = result.testId || result.testName || '';
+    let group = groupIndex.get(key);
+    if (!group) {
+      group = { testName: result.testName ?? null, rows: [] };
+      groupIndex.set(key, group);
+      resultGroups.push(group);
+    }
+    group.rows.push(results[index]);
+  });
+
+  return {
+    version: reportVersion.version ?? 1,
+    lifecycleState: reportVersion.lifecycle_state ?? 'draft',
+    issueNumber: reportVersion.issue_number ?? null,
+    issueDate: reportVersion.issue_date ?? null,
+    narrative: NARRATIVE_FIELDS.map(([, label, key]) => ({ label, value: content[key] || '' })),
+    results,
+    resultGroups,
+  };
+}
+
+/** @param {WorkspaceReferenceRange | undefined} range */
+export function referenceLabel(range) {
+  if (!range) return '';
+  if (range.text) return range.text;
+  const { min, max } = range;
+  if (min !== undefined && max !== undefined) return `${min} – ${max}`;
+  if (min !== undefined) return `≥ ${min}`;
+  if (max !== undefined) return `≤ ${max}`;
+  return '';
+}
+
+/** @param {string} isoDate `YYYY-MM-DD` */
+export function issueDateFromIso(isoDate) {
+  return isoDate.slice(0, 10);
+}
+
+/**
+ * Generate a workspace issue/invoice number. Uniqueness only needs to hold for a
+ * local single-workspace prototype.
+ * @param {Date} [now]
+ * @param {() => number} [random]
+ */
+export function generateIssueNumber(now = new Date(), random = Math.random) {
+  const year = now.getUTCFullYear();
+  const suffix = String(Math.floor(random() * 1_000_000)).padStart(6, '0');
+  return `INV-${year}-${suffix}`;
+}

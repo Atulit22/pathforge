@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from "react";
@@ -9,6 +10,7 @@ import type {
   LaboratoryTest,
   TestParameter,
 } from "../domain/types";
+import { loadWorkspaceTests, saveWorkspaceTests } from "../database/db";
 
 // ========================================
 // CONTEXT TYPES
@@ -289,7 +291,7 @@ const initialTests: LaboratoryTest[] = [
 // PROVIDER
 // ========================================
 
-function TestProvider({
+export function TestProvider({
   children,
 }: {
   children: ReactNode;
@@ -297,19 +299,47 @@ function TestProvider({
   const [tests, setTests] =
     useState<LaboratoryTest[]>(initialTests);
 
+  useEffect(() => {
+    let active = true;
+
+    async function hydrate() {
+      try {
+        const saved = await loadWorkspaceTests();
+        if (!active) return;
+
+        if (saved.initialized) {
+          setTests(saved.tests);
+        } else {
+          await saveWorkspaceTests(initialTests);
+        }
+      } catch (error) {
+        console.error("Failed to load saved laboratory tests:", error);
+      }
+    }
+
+    void hydrate();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function replaceTests(next: LaboratoryTest[]) {
+    setTests(next);
+    void saveWorkspaceTests(next).catch((error) => {
+      console.error("Failed to save laboratory tests:", error);
+    });
+  }
+
   function addTest(test: LaboratoryTest) {
-    setTests((previous) => [
-      ...previous,
-      test,
-    ]);
+    replaceTests([...tests, test]);
   }
 
   function updateTest(
     id: string,
     updates: Partial<LaboratoryTest>
   ) {
-    setTests((previous) =>
-      previous.map((test) =>
+    replaceTests(
+      tests.map((test) =>
         test.id === id
           ? {
               ...test,
@@ -322,17 +352,15 @@ function TestProvider({
   }
 
   function deleteTest(id: string) {
-    setTests((previous) =>
-      previous.filter((test) => test.id !== id)
-    );
+    replaceTests(tests.filter((test) => test.id !== id));
   }
 
   function addParameter(
     testId: string,
     parameter: TestParameter
   ) {
-    setTests((previous) =>
-      previous.map((test) =>
+    replaceTests(
+      tests.map((test) =>
         test.id === testId
           ? {
               ...test,
@@ -352,8 +380,8 @@ function TestProvider({
     parameterId: string,
     updates: Partial<TestParameter>
   ) {
-    setTests((previous) =>
-      previous.map((test) =>
+    replaceTests(
+      tests.map((test) =>
         test.id === testId
           ? {
               ...test,
@@ -377,8 +405,8 @@ function TestProvider({
     testId: string,
     parameterId: string
   ) {
-    setTests((previous) =>
-      previous.map((test) =>
+    replaceTests(
+      tests.map((test) =>
         test.id === testId
           ? {
               ...test,
@@ -448,9 +476,3 @@ export function useTests() {
 
   return context;
 }
-
-// ========================================
-// DEFAULT EXPORT
-// ========================================
-
-export default TestProvider;

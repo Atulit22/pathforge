@@ -1,6 +1,4 @@
 import {
-  Bell,
-  Search,
   Shield,
   UserRound,
   LogOut,
@@ -18,7 +16,6 @@ export default function Header({
   subtitle,
 }: HeaderProps) {
   const {
-    role,
     isAdmin,
     logout,
   } = useAuth();
@@ -31,15 +28,6 @@ export default function Header({
       </div>
 
       <div className="header-actions">
-        <div className="search-box">
-          <Search size={18} />
-
-          <input
-            type="text"
-            placeholder="Search patients or reports..."
-          />
-        </div>
-
         <div className="role-switcher">
           {isAdmin ? (
             <Shield size={18} />
@@ -48,19 +36,9 @@ export default function Header({
           )}
 
           <span className="role-display">
-            {role === "admin"
-              ? "Administrator"
-              : "Employee"}
+            {isAdmin ? "Administrator" : "Employee"}
           </span>
         </div>
-
-        <button
-          className="icon-button"
-          type="button"
-          aria-label="Notifications"
-        >
-          <Bell size={20} />
-        </button>
 
         <div className="user-avatar">
           {isAdmin ? "AD" : "EM"}
