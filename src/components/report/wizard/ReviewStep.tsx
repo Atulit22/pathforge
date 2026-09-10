@@ -4,6 +4,7 @@ import { usePatients } from "../../../store/PatientContext";
 import { useTests } from "../../../store/TestContext";
 import type { LaboratoryTest } from "../../../domain/types";
 import { formatReferenceRange } from "../referenceRange";
+import { computeFlag } from "../flags";
 import { resultKey } from "./ResultsStep";
 import type { ClinicalDetails } from "./ClinicalStep";
 
@@ -78,17 +79,33 @@ export default function ReviewStep({
                 <th>Result</th>
                 <th>Unit</th>
                 <th>Reference Range</th>
+                <th>Flag</th>
               </tr>
             </thead>
             <tbody>
-              {test.parameters.map((parameter) => (
-                <tr key={parameter.id}>
-                  <td>{parameter.name}</td>
-                  <td>{results[resultKey(test.id, parameter.id)] || "—"}</td>
-                  <td>{parameter.unit || "—"}</td>
-                  <td>{formatReferenceRange(parameter.referenceRange)}</td>
-                </tr>
-              ))}
+              {test.parameters.map((parameter) => {
+                const value = results[resultKey(test.id, parameter.id)] ?? "";
+                const flag = computeFlag(
+                  value,
+                  parameter.referenceRange?.min,
+                  parameter.referenceRange?.max
+                );
+                return (
+                  <tr key={parameter.id}>
+                    <td>{parameter.name}</td>
+                    <td>{value || "—"}</td>
+                    <td>{parameter.unit || "—"}</td>
+                    <td>{formatReferenceRange(parameter.referenceRange)}</td>
+                    <td className="flag-cell">
+                      {flag ? (
+                        <span className={`result-flag is-${flag}`}>{flag}</span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </section>

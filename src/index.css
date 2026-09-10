@@ -5871,3 +5871,131 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   RESULT FLAGS + TABLE ALIGNMENT  (spec §13–§15)
+   ============================================================ */
+
+/* ---- Printable report results: strict fixed grid ---- */
+.pr-results {
+  table-layout: fixed;
+}
+
+.pr-col-param {
+  width: 40%;
+}
+.pr-col-result {
+  width: 14%;
+}
+.pr-col-unit {
+  width: 13%;
+}
+.pr-col-ref {
+  width: 22%;
+}
+.pr-col-flag {
+  width: 11%;
+}
+
+.pr-results th,
+.pr-results td {
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* Result value column: left-aligned like every other column, but digits line
+   up via tabular figures. Overrides the earlier right-aligned .pr-num rule. */
+.pr-results .pr-num {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.pr-flag-cell {
+  text-align: center;
+}
+
+.pr-flag {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-weight: 700;
+  font-size: 8.5pt;
+  text-align: center;
+  border: 0.75pt solid currentColor;
+}
+
+.pr-flag-H {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.pr-flag-L {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+@media print {
+  .pr-flag {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* ---- Entry / review tables: same fixed structure everywhere ---- */
+.results-table {
+  table-layout: fixed;
+  min-width: 720px;
+}
+
+.results-table col.rt-param,
+.results-table th:nth-child(1) {
+  width: 32%;
+}
+.results-table th:nth-child(2) {
+  width: 22%;
+}
+.results-table th:nth-child(3) {
+  width: 13%;
+}
+.results-table th:nth-child(4) {
+  width: 21%;
+}
+.results-table th:nth-child(5) {
+  width: 12%;
+}
+
+.results-table td,
+.results-table th {
+  overflow-wrap: anywhere;
+}
+
+.results-table td.parameter-cell {
+  font-weight: 500;
+}
+
+.results-table .flag-cell {
+  text-align: center;
+}
+
+.result-flag {
+  display: inline-flex;
+  min-width: 22px;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.result-flag.is-H {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.result-flag.is-L {
+  background: #dbeafe;
+  color: #1d4ed8;
+}

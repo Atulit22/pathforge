@@ -65,12 +65,20 @@ export default function PrintableReport({ model }: PrintableReportProps) {
               )}
 
               <table className="pr-results">
+                <colgroup>
+                  <col className="pr-col-param" />
+                  <col className="pr-col-result" />
+                  <col className="pr-col-unit" />
+                  <col className="pr-col-ref" />
+                  <col className="pr-col-flag" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Parameter</th>
-                    <th className="pr-num">Result</th>
+                    <th>Result</th>
                     <th>Unit</th>
                     <th>Reference Range</th>
+                    <th>Flag</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -82,6 +90,18 @@ export default function PrintableReport({ model }: PrintableReportProps) {
                       </td>
                       <td>{row.unit}</td>
                       <td>{row.reference}</td>
+                      <td className="pr-flag-cell">
+                        {row.flag ? (
+                          <span
+                            className={`pr-flag pr-flag-${row.flag}`}
+                            title={row.flagLabel}
+                          >
+                            {row.flag}
+                          </span>
+                        ) : (
+                          ""
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

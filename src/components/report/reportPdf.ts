@@ -7,6 +7,8 @@ const NAVY: [number, number, number] = [31, 58, 95];
 const INK: [number, number, number] = [26, 26, 26];
 const MUTED: [number, number, number] = [90, 102, 115];
 const HAIRLINE: [number, number, number] = [200, 206, 214];
+const FLAG_HIGH: [number, number, number] = [185, 28, 28];
+const FLAG_LOW: [number, number, number] = [29, 78, 216];
 
 const MARGIN = 16; // mm
 const PAGE_W = 210;
@@ -120,13 +122,16 @@ export async function buildReportPdf(model: ReportModel): Promise<jsPDF> {
   };
 
   // ---- results, grouped by test ----
-  const cols = [MARGIN, MARGIN + 74, MARGIN + 108, MARGIN + 134];
+  // Fixed column x-positions (mm from left margin) shared by header and every
+  // row so all result tables align identically. CONTENT_W is 178mm.
+  const cols = [MARGIN, MARGIN + 70, MARGIN + 95, MARGIN + 120, MARGIN + 166];
+  const PARAM_W = 66;
 
   const drawResultsHeader = () => {
     need(8);
     doc.setFont("helvetica", "bold").setFontSize(7).setTextColor(...MUTED);
-    ["PARAMETER", "RESULT", "UNIT", "REFERENCE RANGE"].forEach((label, i) =>
-      doc.text(label, cols[i] ?? MARGIN, y + 3)
+    ["PARAMETER", "RESULT", "UNIT", "REFERENCE RANGE", "FLAG"].forEach(
+      (label, i) => doc.text(label, cols[i] ?? MARGIN, y + 3)
     );
     y += 4.5;
     doc.setDrawColor(...NAVY).setLineWidth(0.4).line(MARGIN, y, PAGE_W - MARGIN, y);
@@ -147,7 +152,7 @@ export async function buildReportPdf(model: ReportModel): Promise<jsPDF> {
       drawResultsHeader();
 
       for (const row of group.rows) {
-        const nameLines = doc.splitTextToSize(row.name, 70);
+        const nameLines = doc.splitTextToSize(row.name, PARAM_W);
         const rowH = Math.max(5.5, nameLines.length * 4);
         if (y + rowH + 2 > FOOTER_Y - 4) {
           doc.addPage();
@@ -163,7 +168,17 @@ export async function buildReportPdf(model: ReportModel): Promise<jsPDF> {
         doc.text(row.value, cols[1] ?? MARGIN, y + 3);
         doc.setFont("helvetica", "normal");
         doc.text(row.unit, cols[2] ?? MARGIN, y + 3);
-        doc.text(row.reference, cols[3] ?? MARGIN, y + 3);
+        doc.text(
+          doc.splitTextToSize(row.reference, 42)[0] ?? row.reference,
+          cols[3] ?? MARGIN,
+          y + 3
+        );
+        if (row.flag) {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...(row.flag === "H" ? FLAG_HIGH : FLAG_LOW));
+          doc.text(row.flag, cols[4] ?? MARGIN, y + 3);
+          doc.setFont("helvetica", "normal").setTextColor(...INK);
+        }
         y += rowH;
         doc
           .setDrawColor(...HAIRLINE)

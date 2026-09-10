@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 
 import { useTests } from "../../../store/TestContext";
-import type { LaboratoryTest, TestParameter } from "../../../domain/types";
+import type { LaboratoryTest } from "../../../domain/types";
 import { formatReferenceRange } from "../referenceRange";
+import { computeFlag } from "../flags";
 
 interface ResultsStepProps {
   selectedTestIds: string[];
@@ -13,17 +14,6 @@ interface ResultsStepProps {
 
 export function resultKey(testId: string, parameterId: string): string {
   return `${testId}::${parameterId}`;
-}
-
-function flagFor(value: string, parameter: TestParameter): "" | "H" | "L" {
-  const numeric = Number(value);
-  if (!value.trim() || Number.isNaN(numeric) || !parameter.referenceRange) {
-    return "";
-  }
-  const { min, max } = parameter.referenceRange;
-  if (typeof max === "number" && numeric > max) return "H";
-  if (typeof min === "number" && numeric < min) return "L";
-  return "";
 }
 
 export default function ResultsStep({
@@ -74,7 +64,11 @@ export default function ResultsStep({
                 {test.parameters.map((parameter) => {
                   const key = resultKey(test.id, parameter.id);
                   const value = results[key] ?? "";
-                  const flag = flagFor(value, parameter);
+                  const flag = computeFlag(
+                    value,
+                    parameter.referenceRange?.min,
+                    parameter.referenceRange?.max
+                  );
                   return (
                     <tr key={parameter.id}>
                       <td className="parameter-cell">{parameter.name}</td>

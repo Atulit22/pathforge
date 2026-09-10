@@ -5,6 +5,7 @@ import {
   buildWorkspaceDocumentConfig,
 } from "../../rendering/index.mjs";
 import { accession, formatReportDate } from "./reportMeta";
+import { computeFlag, flagLabel, type ResultFlag } from "./flags";
 
 /**
  * House-format *presenter*. It owns the wording of the printed page — brand
@@ -52,6 +53,9 @@ export interface ReportResultRow {
   numeric: boolean;
   unit: string;
   reference: string;
+  /** Derived once, in this model, from the value and the reference range. */
+  flag: ResultFlag;
+  flagLabel: string;
 }
 
 export interface ReportResultGroup {
@@ -210,6 +214,10 @@ export function buildReportModel(input: ReportModelInput): ReportModel {
       rows: section.fields.map((field) => {
         const content = field.content as Record<string, unknown>;
         const value = text(content.value);
+        const range = content.reference_range as
+          | { low?: number; high?: number }
+          | undefined;
+        const flag = computeFlag(value, range?.low, range?.high);
         return {
           key: field.field_id,
           name: text(content.display),
@@ -217,6 +225,8 @@ export function buildReportModel(input: ReportModelInput): ReportModel {
           numeric: isNumeric(value),
           unit: text(content.unit) || DASH,
           reference: referenceLabel(content),
+          flag,
+          flagLabel: flagLabel(flag),
         };
       }),
     }));

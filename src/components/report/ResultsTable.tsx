@@ -2,6 +2,7 @@ import { FlaskConical } from "lucide-react";
 
 import type { TestResult } from "../../store/ReportContext";
 import { formatReferenceRange } from "./referenceRange";
+import { computeFlag } from "./flags";
 import { groupResultsByTest } from "./groupResults";
 
 interface ResultsTableProps {
@@ -49,33 +50,50 @@ export default function ResultsTable({
                   <th>Result</th>
                   <th>Unit</th>
                   <th>Reference Range</th>
+                  <th>Flag</th>
                 </tr>
               </thead>
               <tbody>
-                {group.results.map((result) => (
-                  <tr key={`${result.testId}::${result.parameterId}`}>
-                    <td className="parameter-cell">{result.parameterName}</td>
-                    <td className="result-cell">
-                      <input
-                        aria-label={`${result.parameterName} result`}
-                        type="text"
-                        value={result.value}
-                        onChange={(event) =>
-                          onResultChange(
-                            result.testId,
-                            result.parameterId,
-                            event.target.value
-                          )
-                        }
-                        disabled={disabled}
-                      />
-                    </td>
-                    <td className="unit-cell">{result.unit || "—"}</td>
-                    <td className="reference-cell">
-                      {formatReferenceRange(result.referenceRange)}
-                    </td>
-                  </tr>
-                ))}
+                {group.results.map((result) => {
+                  const flag = computeFlag(
+                    result.value,
+                    result.referenceRange?.min,
+                    result.referenceRange?.max
+                  );
+                  return (
+                    <tr key={`${result.testId}::${result.parameterId}`}>
+                      <td className="parameter-cell">{result.parameterName}</td>
+                      <td className="result-cell">
+                        <input
+                          aria-label={`${result.parameterName} result`}
+                          type="text"
+                          value={result.value}
+                          onChange={(event) =>
+                            onResultChange(
+                              result.testId,
+                              result.parameterId,
+                              event.target.value
+                            )
+                          }
+                          disabled={disabled}
+                        />
+                      </td>
+                      <td className="unit-cell">{result.unit || "—"}</td>
+                      <td className="reference-cell">
+                        {formatReferenceRange(result.referenceRange)}
+                      </td>
+                      <td className="flag-cell">
+                        {flag ? (
+                          <span className={`result-flag is-${flag}`}>
+                            {flag}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
