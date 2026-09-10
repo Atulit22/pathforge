@@ -5076,23 +5076,24 @@ button {
 
 .top-nav {
   flex-shrink: 0;
-  height: 64px;
+  height: 74px;
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 0 24px;
+  gap: 28px;
+  padding: 0 28px;
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .top-nav-brand {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
   border: none;
   background: transparent;
-  padding: 4px 6px;
-  border-radius: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
   flex-shrink: 0;
 }
 
@@ -5101,9 +5102,9 @@ button {
 }
 
 .top-nav-brand-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   background: #172033;
   color: #ffffff;
   display: flex;
@@ -5119,13 +5120,13 @@ button {
 }
 
 .top-nav-brand-text strong {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: #0f172a;
 }
 
 .top-nav-brand-text span {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -5135,7 +5136,7 @@ button {
 .top-nav-links {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex: 1;
   min-width: 0;
   overflow-x: auto;
@@ -5149,15 +5150,15 @@ button {
 .top-nav-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   white-space: nowrap;
   border: none;
   background: transparent;
   color: #64748b;
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 600;
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 10px 15px;
+  border-radius: 9px;
   transition:
     background 0.15s ease,
     color 0.15s ease;
@@ -5736,6 +5737,137 @@ button {
   .choice-row,
   .review-grid,
   .patient-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   DASHBOARD  (UI/UX polish — spec §2–§4)
+   ============================================================ */
+
+.dashboard-page .stats-grid {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.dashboard-page .stat-card {
+  width: 100%;
+  text-align: left;
+  border-radius: 14px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.dashboard-page .stat-card:disabled {
+  cursor: default;
+}
+
+.dashboard-page .stat-card.is-clickable {
+  cursor: pointer;
+}
+
+.dashboard-page .stat-card.is-clickable:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.1);
+}
+
+.stat-card-arrow {
+  margin-left: auto;
+  color: #94a3b8;
+}
+
+/* 62 / 38 split — Recent Reports is the information-dense column */
+.dashboard-page .dashboard-grid {
+  grid-template-columns: 1.62fr 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+/* Quick Actions — deliberate dark panel */
+.quick-actions-panel {
+  background: #172033;
+  border: 1px solid #0f172a;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quick-actions-panel-header {
+  margin-bottom: 4px;
+}
+
+.quick-actions-panel-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.quick-actions-panel-header p {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.quick-actions-panel .quick-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 15px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: left;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.quick-actions-panel .quick-action:hover {
+  background: rgba(37, 99, 235, 0.16);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.quick-actions-panel .quick-action:active {
+  transform: scale(0.99);
+}
+
+.quick-action-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.quick-actions-panel .quick-action > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.quick-actions-panel .quick-action strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+@media (max-width: 1000px) {
+  .dashboard-page .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dashboard-page .dashboard-grid {
     grid-template-columns: 1fr;
   }
 }

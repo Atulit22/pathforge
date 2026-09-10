@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   ClipboardList,
   FilePlus2,
-  Users,
   History,
   FlaskConical,
   Stethoscope,
@@ -35,11 +34,12 @@ type NavItem = {
   adminOnly?: boolean;
 };
 
+// Patients is intentionally not a top-level tab — it is reached from the
+// Dashboard (Total Patients / Manage Patients) and the New Report wizard.
 const NAV_ITEMS: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "worklist", label: "Worklist", icon: ClipboardList },
   { id: "new-report", label: "New Report", icon: FilePlus2 },
-  { id: "patients", label: "Patients", icon: Users },
   { id: "history", label: "Version History", icon: History },
   {
     id: "test-management",
@@ -63,7 +63,7 @@ export default function TopNav({ activePage, onNavigate }: TopNavProps) {
         title="PathForge — go to dashboard"
       >
         <span className="top-nav-brand-icon">
-          <Stethoscope size={20} />
+          <Stethoscope size={22} />
         </span>
         <span className="top-nav-brand-text">
           <strong>PathForge</strong>
@@ -84,7 +84,7 @@ export default function TopNav({ activePage, onNavigate }: TopNavProps) {
               aria-current={active ? "page" : undefined}
               onClick={() => onNavigate(item.id)}
             >
-              <Icon size={16} />
+              <Icon size={18} />
               <span>{item.label}</span>
             </button>
           );
