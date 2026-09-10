@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useReports } from "../store/ReportContext";
 import { usePatients } from "../store/PatientContext";
+import PageHeading from "../components/layout/PageHeading";
 
 interface WorklistProps {
   onSelectReport?: (reportId: string) => void;
@@ -47,6 +48,11 @@ export default function Worklist({
 
   return (
     <div className="worklist-page">
+      <PageHeading
+        title="Report Worklist"
+        subtitle="Open drafts and finalized reports, and continue where you left off."
+      />
+
       <div className="page-toolbar">
         <div className="patients-search">
           <Search size={18} />

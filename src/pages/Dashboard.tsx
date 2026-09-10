@@ -9,7 +9,7 @@ import {
 import { usePatients } from "../store/PatientContext";
 import { useReports } from "../store/ReportContext";
 import { checkClinicalCompleteness } from "../domain/report-bridge.mjs";
-import type { Page } from "../components/layout/Sidebar";
+import type { Page } from "../components/layout/TopNav";
 
 interface DashboardProps {
   onNavigate: (page: Page) => void;

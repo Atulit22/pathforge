@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Plus, Search, Users, X } from "lucide-react";
 import { usePatients, type Patient } from "../store/PatientContext";
 import Swal from "sweetalert2";
+import PageHeading from "../components/layout/PageHeading";
+
 export default function Patients() {
   const { patients, addPatient, loading } = usePatients();
 
@@ -95,6 +97,11 @@ export default function Patients() {
 
   return (
     <div className="patients-page">
+      <PageHeading
+        title="Patients"
+        subtitle="Search patient records or add a new patient."
+      />
+
       <div className="page-toolbar">
         <div className="patients-search">
           <Search size={18} />
