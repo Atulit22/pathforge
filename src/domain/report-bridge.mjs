@@ -35,6 +35,8 @@
  * }} WorkspaceReportContent
  */
 
+import { containsInvalidChars, sanitizeText } from './textRules.mjs';
+
 /** Catalog version stamped onto every locally-authored payload entry. */
 export const WORKSPACE_CATALOG_VERSION = 'workspace';
 
@@ -105,7 +107,9 @@ export function buildResolvedPayload(content) {
       field_id: fieldId,
       display,
       kind: 'narrative',
-      value: asText(content[key]),
+      // Persistence-side allowlisting: even if a client skipped the input
+      // filter, disallowed characters never reach the stored report.
+      value: sanitizeText(content[key], 'general'),
       source_catalog_version: WORKSPACE_CATALOG_VERSION,
     };
   }
@@ -120,7 +124,8 @@ export function buildResolvedPayload(content) {
       field_id: fieldId,
       display: result.parameterName || result.parameterId,
       kind: 'result',
-      value: asText(result.value),
+      // Results also permit "+" (trace / 1+ / 2+ / 3+).
+      value: sanitizeText(result.value, 'result'),
       parameter_id: result.parameterId,
       source_catalog_version: WORKSPACE_CATALOG_VERSION,
     };
@@ -194,6 +199,29 @@ export function readWorkspaceContent(reportVersion) {
 export function checkClinicalCompleteness(content) {
   /** @type {{field: string, message: string}[]} */
   const issues = [];
+
+  // Character allowlist, re-checked here so it is enforced at finalize even if a
+  // client wrote around the input filter (buildResolvedPayload also strips).
+  /** @param {string} field @param {string} label @param {import('./textRules.mjs').TextKind} kind */
+  const checkChars = (field, label, kind) => {
+    const value = asText(/** @type {Record<string, unknown>} */ (content)[field]);
+    if (containsInvalidChars(value, kind)) {
+      issues.push({ field, message: `${label} contains characters that are not allowed.` });
+    }
+  };
+  checkChars('specimenType', 'Specimen type', 'general');
+  checkChars('clinicalHistory', 'Clinical history', 'general');
+  checkChars('findings', 'Findings', 'general');
+  checkChars('diagnosis', 'Diagnosis', 'general');
+  for (const result of content.testResults ?? []) {
+    if (containsInvalidChars(asText(result.value), 'result')) {
+      issues.push({
+        field: `result.${result.parameterId}`,
+        message: `Result for "${result.parameterName || result.parameterId}" contains characters that are not allowed.`,
+      });
+    }
+  }
+
   if (!asText(content.specimenType).trim()) {
     issues.push({ field: 'specimenType', message: 'Specimen type is required.' });
   }

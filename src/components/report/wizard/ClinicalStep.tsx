@@ -1,3 +1,5 @@
+import { sanitizeText } from "../../../domain/textRules.mjs";
+
 interface ClinicalDetails {
   clinicalHistory: string;
   findings: string;
@@ -10,6 +12,7 @@ interface ClinicalStepProps {
 }
 
 export default function ClinicalStep({ value, onChange }: ClinicalStepProps) {
+  const clean = (text: string) => sanitizeText(text, "general");
   return (
     <div className="wizard-panel">
       <h2>Clinical details</h2>
@@ -25,7 +28,7 @@ export default function ClinicalStep({ value, onChange }: ClinicalStepProps) {
           rows={3}
           value={value.clinicalHistory}
           onChange={(event) =>
-            onChange({ clinicalHistory: event.target.value })
+            onChange({ clinicalHistory: clean(event.target.value) })
           }
           placeholder="Relevant history provided with the request…"
         />
@@ -37,7 +40,9 @@ export default function ClinicalStep({ value, onChange }: ClinicalStepProps) {
           id="cd-findings"
           rows={5}
           value={value.findings}
-          onChange={(event) => onChange({ findings: event.target.value })}
+          onChange={(event) =>
+            onChange({ findings: clean(event.target.value) })
+          }
           placeholder="Gross and microscopic findings…"
         />
       </div>
@@ -48,7 +53,9 @@ export default function ClinicalStep({ value, onChange }: ClinicalStepProps) {
           id="cd-diagnosis"
           rows={3}
           value={value.diagnosis}
-          onChange={(event) => onChange({ diagnosis: event.target.value })}
+          onChange={(event) =>
+            onChange({ diagnosis: clean(event.target.value) })
+          }
           placeholder="Final impression / diagnosis…"
         />
       </div>

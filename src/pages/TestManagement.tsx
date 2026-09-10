@@ -14,6 +14,10 @@ import {
 import { formatReferenceRange } from "../components/report/referenceRange";
 import AddTestForm from "../components/tests/AddTestForm";
 import AddParameterForm from "../components/tests/AddParameterForm";
+import { sanitizeText } from "../domain/textRules.mjs";
+
+/** Approved clinical text for test / parameter / department / unit names. */
+const cleanName = (value: string) => sanitizeText(value, "general").trim();
 
 import type {
   LaboratoryTest,
@@ -124,13 +128,11 @@ export default function TestManagement() {
     const test: LaboratoryTest = {
       id: crypto.randomUUID(),
 
-      name: newTest.name.trim(),
+      name: cleanName(newTest.name),
 
-      department:
-        newTest.department.trim(),
+      department: cleanName(newTest.department),
 
-      specimen:
-        newTest.specimen.trim() || undefined,
+      specimen: cleanName(newTest.specimen) || undefined,
 
       parameters: [],
 
@@ -173,13 +175,11 @@ export default function TestManagement() {
     }
 
     updateTest(testId, {
-      name: editTest.name.trim(),
+      name: cleanName(editTest.name),
 
-      department:
-        editTest.department.trim(),
+      department: cleanName(editTest.department),
 
-      specimen:
-        editTest.specimen.trim() || undefined,
+      specimen: cleanName(editTest.specimen) || undefined,
 
       updatedAt:
         new Date().toISOString(),
@@ -227,38 +227,31 @@ export default function TestManagement() {
       return;
     }
 
-    const referenceRange =
-      newParameter.referenceText.trim()
+    const referenceText = cleanName(newParameter.referenceText);
+    const referenceRange = referenceText
+      ? { text: referenceText }
+      : newParameter.min !== "" || newParameter.max !== ""
         ? {
-            text:
-              newParameter.referenceText.trim(),
-          }
-        : newParameter.min !== "" ||
-            newParameter.max !== ""
-          ? {
-              min:
-                newParameter.min !== ""
-                  ? Number(newParameter.min)
-                  : undefined,
+            min:
+              newParameter.min !== ""
+                ? Number(newParameter.min)
+                : undefined,
 
-              max:
-                newParameter.max !== ""
-                  ? Number(newParameter.max)
-                  : undefined,
-            }
-          : undefined;
+            max:
+              newParameter.max !== ""
+                ? Number(newParameter.max)
+                : undefined,
+          }
+        : undefined;
 
     const parameter: TestParameter = {
       id: crypto.randomUUID(),
 
-      name:
-        newParameter.name.trim(),
+      name: cleanName(newParameter.name),
 
-      type:
-        newParameter.type,
+      type: newParameter.type,
 
-      unit:
-        newParameter.unit.trim(),
+      unit: cleanName(newParameter.unit),
 
       referenceRange,
     };
@@ -325,47 +318,32 @@ export default function TestManagement() {
       return;
     }
 
-    const referenceRange =
-      editParameterData.referenceText.trim()
+    const referenceText = cleanName(editParameterData.referenceText);
+    const referenceRange = referenceText
+      ? { text: referenceText }
+      : editParameterData.min !== "" || editParameterData.max !== ""
         ? {
-            text:
-              editParameterData.referenceText.trim(),
+            min:
+              editParameterData.min !== ""
+                ? Number(editParameterData.min)
+                : undefined,
+
+            max:
+              editParameterData.max !== ""
+                ? Number(editParameterData.max)
+                : undefined,
           }
-        : editParameterData.min !== "" ||
-            editParameterData.max !== ""
-          ? {
-              min:
-                editParameterData.min !== ""
-                  ? Number(
-                      editParameterData.min
-                    )
-                  : undefined,
+        : undefined;
 
-              max:
-                editParameterData.max !== ""
-                  ? Number(
-                      editParameterData.max
-                    )
-                  : undefined,
-            }
-          : undefined;
+    updateParameter(testId, parameterId, {
+      name: cleanName(editParameterData.name),
 
-    updateParameter(
-      testId,
-      parameterId,
-      {
-        name:
-          editParameterData.name.trim(),
+      type: editParameterData.type,
 
-        type:
-          editParameterData.type,
+      unit: cleanName(editParameterData.unit),
 
-        unit:
-          editParameterData.unit.trim(),
-
-        referenceRange,
-      }
-    );
+      referenceRange,
+    });
 
     setEditingParameter(null);
   }

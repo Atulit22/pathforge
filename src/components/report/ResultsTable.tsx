@@ -4,6 +4,7 @@ import type { TestResult } from "../../store/ReportContext";
 import { formatReferenceRange } from "./referenceRange";
 import { computeFlag } from "./flags";
 import { groupResultsByTest } from "./groupResults";
+import { sanitizeText } from "../../domain/textRules.mjs";
 
 interface ResultsTableProps {
   results: TestResult[];
@@ -72,7 +73,7 @@ export default function ResultsTable({
                             onResultChange(
                               result.testId,
                               result.parameterId,
-                              event.target.value
+                              sanitizeText(event.target.value, "result")
                             )
                           }
                           disabled={disabled}

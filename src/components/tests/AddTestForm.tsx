@@ -1,4 +1,7 @@
 import { Save, X } from "lucide-react";
+import { sanitizeText } from "../../domain/textRules.mjs";
+
+const g = (value: string) => sanitizeText(value, "general");
 
 export interface TestDraft {
   name: string;
@@ -40,7 +43,7 @@ export default function AddTestForm({
             placeholder="e.g. Liver Function Test"
             value={value.name}
             onChange={(event) =>
-              onChange({ ...value, name: event.target.value })
+              onChange({ ...value, name: g(event.target.value) })
             }
           />
         </div>
@@ -53,7 +56,7 @@ export default function AddTestForm({
             placeholder="e.g. Biochemistry"
             value={value.department}
             onChange={(event) =>
-              onChange({ ...value, department: event.target.value })
+              onChange({ ...value, department: g(event.target.value) })
             }
           />
 
@@ -71,7 +74,7 @@ export default function AddTestForm({
             placeholder="e.g. Serum"
             value={value.specimen}
             onChange={(event) =>
-              onChange({ ...value, specimen: event.target.value })
+              onChange({ ...value, specimen: g(event.target.value) })
             }
           />
         </div>

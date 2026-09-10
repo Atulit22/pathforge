@@ -4,6 +4,7 @@ import {
   usePatients,
   type NewPatientInput,
 } from "../../store/PatientContext";
+import { sanitizePhone, sanitizeText } from "../../domain/textRules.mjs";
 
 interface PatientFormProps {
   onSaved: (patientId: string) => void;
@@ -13,13 +14,6 @@ interface PatientFormProps {
 }
 
 const SEX_OPTIONS = ["Female", "Male", "Other"] as const;
-
-/** Characters allowed in free-text patient fields (spec §21). */
-const TEXT_ALLOWED = /[^\p{L}\p{N}\s.,()&%'/-]/gu;
-
-function cleanText(value: string): string {
-  return value.replace(TEXT_ALLOWED, "");
-}
 
 /**
  * Register-a-patient form. Used by the Patients page and by the New Report
@@ -50,16 +44,24 @@ export default function PatientForm({
 
   const disabled = busy || saving;
 
+  // Filter as the user types — invalid characters never enter the field, and a
+  // paste is stripped rather than accepted.
   function update<K extends keyof typeof form>(key: K, value: string) {
-    setForm((previous) => ({ ...previous, [key]: value }));
+    const clean =
+      key === "phone"
+        ? sanitizePhone(value)
+        : key === "name" || key === "address"
+          ? sanitizeText(value, "general")
+          : value;
+    setForm((previous) => ({ ...previous, [key]: clean }));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (disabled) return;
 
-    const name = cleanText(form.name).trim();
-    const phone = form.phone.replace(/[^\d+\-\s()]/g, "").trim();
+    const name = sanitizeText(form.name, "general").trim();
+    const phone = sanitizePhone(form.phone).trim();
     const age = Number(form.age);
 
     if (!name) return setError("Patient name is required.");
@@ -74,7 +76,7 @@ export default function PatientForm({
       age,
       gender: form.gender,
       phone,
-      address: cleanText(form.address).trim() || undefined,
+      address: sanitizeText(form.address, "general").trim() || undefined,
     };
 
     setSaving(true);

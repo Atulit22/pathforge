@@ -4,6 +4,7 @@ import { useTests } from "../../../store/TestContext";
 import type { LaboratoryTest } from "../../../domain/types";
 import { formatReferenceRange } from "../referenceRange";
 import { computeFlag } from "../flags";
+import { sanitizeText } from "../../../domain/textRules.mjs";
 
 interface ResultsStepProps {
   selectedTestIds: string[];
@@ -81,7 +82,10 @@ export default function ResultsStep({
                           placeholder="Enter result"
                           value={value}
                           onChange={(event) =>
-                            onChange(key, event.target.value)
+                            onChange(
+                              key,
+                              sanitizeText(event.target.value, "result")
+                            )
                           }
                         />
                       </td>

@@ -1,4 +1,7 @@
 import { Save } from "lucide-react";
+import { sanitizeText } from "../../domain/textRules.mjs";
+
+const g = (value: string) => sanitizeText(value, "general");
 
 export interface ParameterDraft {
   name: string;
@@ -34,7 +37,7 @@ export default function AddParameterForm({
             placeholder="e.g. ALT"
             value={value.name}
             onChange={(event) =>
-              onChange({ ...value, name: event.target.value })
+              onChange({ ...value, name: g(event.target.value) })
             }
           />
         </div>
@@ -61,7 +64,7 @@ export default function AddParameterForm({
             placeholder="e.g. U/L"
             value={value.unit}
             onChange={(event) =>
-              onChange({ ...value, unit: event.target.value })
+              onChange({ ...value, unit: g(event.target.value) })
             }
           />
         </div>
@@ -94,7 +97,7 @@ export default function AddParameterForm({
             placeholder="e.g. Negative"
             value={value.referenceText}
             onChange={(event) =>
-              onChange({ ...value, referenceText: event.target.value })
+              onChange({ ...value, referenceText: g(event.target.value) })
             }
           />
         </div>

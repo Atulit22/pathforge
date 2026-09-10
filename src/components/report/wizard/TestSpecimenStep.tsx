@@ -4,6 +4,7 @@ import TextField from "@mui/material/TextField";
 
 import { useTests } from "../../../store/TestContext";
 import type { LaboratoryTest } from "../../../domain/types";
+import { sanitizeText } from "../../../domain/textRules.mjs";
 
 interface TestSpecimenStepProps {
   selectedTestIds: string[];
@@ -103,8 +104,12 @@ export default function TestSpecimenStep({
           autoSelect
           options={specimenOptions}
           value={specimenType || null}
-          onChange={(_event, value) => onChangeSpecimen(value ?? "")}
-          onInputChange={(_event, value) => onChangeSpecimen(value)}
+          onChange={(_event, value) =>
+            onChangeSpecimen(sanitizeText(value ?? "", "general"))
+          }
+          onInputChange={(_event, value) =>
+            onChangeSpecimen(sanitizeText(value, "general"))
+          }
           renderInput={(params) => (
             <TextField
               {...params}

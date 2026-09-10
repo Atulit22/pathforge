@@ -13,6 +13,7 @@ import Swal from "sweetalert2";
 
 import { useReports, type TestResult } from "../store/ReportContext";
 import { usePatients } from "../store/PatientContext";
+import { sanitizeText } from "../domain/textRules.mjs";
 import PrintableReport from "../components/report/PrintableReport";
 import ReportPreviewModal from "../components/report/ReportPreviewModal";
 import ResultsTable from "../components/report/ResultsTable";
@@ -170,7 +171,7 @@ function ReportEditor({
 
     setFormData((previous) => ({
       ...previous,
-      [name]: value,
+      [name]: sanitizeText(value, "general"),
     }));
   }
 
@@ -181,11 +182,12 @@ function ReportEditor({
   ) {
     if (isFinalized) return;
 
+    const clean = sanitizeText(value, "result");
     setFormData((previous) => ({
       ...previous,
       testResults: previous.testResults.map((result) =>
         result.testId === testId && result.parameterId === parameterId
-          ? { ...result, value }
+          ? { ...result, value: clean }
           : result
       ),
     }));
