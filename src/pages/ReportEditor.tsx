@@ -311,6 +311,7 @@ function ReportEditor({
       confirmText: "Create amendment",
       multiline: true,
       requiredMessage: "An amendment reason is required.",
+      showCancel: false,
     });
 
     if (!reason) return;

@@ -147,6 +147,8 @@ export async function promptText(options: {
   confirmText?: string;
   multiline?: boolean;
   requiredMessage?: string;
+  /** Show the explicit Cancel button (the X + Esc always dismiss). Default true. */
+  showCancel?: boolean;
 }): Promise<string | null> {
   const result = await dialog.fire<string>({
     icon: "question",
@@ -155,7 +157,7 @@ export async function promptText(options: {
     inputLabel: options.label,
     inputPlaceholder: options.placeholder,
     inputAttributes: { "aria-label": options.label },
-    showCancelButton: true,
+    showCancelButton: options.showCancel !== false,
     confirmButtonText: options.confirmText ?? "Confirm",
     cancelButtonText: "Cancel",
     inputValidator: (value: string) =>
