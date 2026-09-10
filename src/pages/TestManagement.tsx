@@ -150,7 +150,7 @@ export default function TestManagement() {
 
     setShowAddTest(false);
 
-    void notifySuccess({ title: "Test added", timer: 1400 });
+    void notifySuccess({ title: "Test added" });
   }
 
   function startEditTest(test: LaboratoryTest) {

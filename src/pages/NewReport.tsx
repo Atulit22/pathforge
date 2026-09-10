@@ -162,7 +162,7 @@ export default function NewReport({ onOpenReport }: NewReportProps) {
 
       // Save as Draft: confirm, then show the draft preview before the editor
       // (spec §18). Closing the preview opens the actual draft.
-      await notifySuccess({ title: "Draft saved", timer: 1200 });
+      await notifySuccess({ title: "Draft saved" });
       setDraftPreview({ model: modelForDraft(draft), reportId: draft.id });
     } catch (error) {
       await notifyError({

@@ -226,7 +226,6 @@ function ReportEditor({
     void notifySuccess({
       title: "Changes saved",
       text: "Report changes have been saved.",
-      timer: 1600,
     });
   }
 
@@ -311,7 +310,6 @@ function ReportEditor({
       confirmText: "Create amendment",
       multiline: true,
       requiredMessage: "An amendment reason is required.",
-      showCancel: false,
     });
 
     if (!reason) return;
@@ -338,7 +336,6 @@ function ReportEditor({
     await notifySuccess({
       title: "Amendment created",
       text: `Version ${amendment.version} created as a draft amendment.`,
-      timer: 1600,
     });
 
     onOpenReport(amendment.id);

@@ -87,7 +87,6 @@ export default function PatientForm({
       void notifySuccess({
         title: "Patient created",
         text: `${patient.name} · ${patient.patientId}`,
-        timer: 1400,
       });
       onSaved(patient.id);
     } catch (saveError) {
