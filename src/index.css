@@ -6040,3 +6040,85 @@ button {
 .preview-modal-sheet .print-report.pr-draft::before {
   position: absolute;
 }
+
+/* ============================================================
+   HEADER = BRANDING + ACCOUNT ONLY  (nav restructure)
+   ============================================================ */
+
+.top-nav-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.top-nav-menu {
+  position: relative;
+}
+
+.top-nav-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 38px;
+  padding: 0 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475569;
+}
+
+.top-nav-menu-trigger:hover,
+.top-nav-menu-trigger[aria-expanded="true"] {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.top-nav-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 190px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  padding: 6px;
+  z-index: 50;
+}
+
+.top-nav-menu-list button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #334155;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.top-nav-menu-list button:hover {
+  background: #eff4ff;
+  color: #2563eb;
+}
+
+/* ---- Dashboard personalized greeting ---- */
+.dashboard-greeting {
+  margin-bottom: 22px;
+}
+
+.dashboard-greeting h1 {
+  font-size: 21px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.dashboard-greeting p {
+  margin-top: 3px;
+  font-size: 13.5px;
+  color: #64748b;
+}

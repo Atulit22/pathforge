@@ -6,20 +6,44 @@ import {
   ArrowRight,
   Plus,
   ClipboardList,
+  History,
 } from "lucide-react";
 import { usePatients } from "../store/PatientContext";
 import { useReports } from "../store/ReportContext";
+import { useAuth } from "../store/AuthContext";
 import { checkClinicalCompleteness } from "../domain/report-bridge.mjs";
-import PageHeading from "../components/layout/PageHeading";
 import type { Page } from "../components/layout/TopNav";
 
 interface DashboardProps {
   onNavigate: (page: Page) => void;
 }
 
+function greetingFor(date: Date): string {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+/** Best-effort display name for the signed-in user. */
+function displayName(
+  metadata: Record<string, unknown> | undefined,
+  email: string | undefined
+): string {
+  const named = [metadata?.full_name, metadata?.name, metadata?.["display_name"]]
+    .filter((value): value is string => typeof value === "string" && value.trim() !== "")
+    .at(0);
+  if (named) return named.trim();
+  if (email) return email.split("@")[0] ?? email;
+  return "there";
+}
+
 export default function Dashboard({ onNavigate }: DashboardProps) {
   const { patients } = usePatients();
   const { reports } = useReports();
+  const { user } = useAuth();
+
+  const name = displayName(user?.user_metadata, user?.email);
 
   const draftReports = reports.filter((report) => report.status === "draft");
   const finalizedReports = reports.filter(
@@ -66,10 +90,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   return (
     <div className="dashboard-page">
-      <PageHeading
-        title="Dashboard"
-        subtitle="Overview of your pathology workspace."
-      />
+      <div className="dashboard-greeting">
+        <h1>
+          {greetingFor(new Date())}, {name} <span aria-hidden="true">👋</span>
+        </h1>
+        <p>Here's what's happening in your pathology workspace today.</p>
+      </div>
 
       <div className="stats-grid">
         {stats.map((stat) => {
@@ -189,6 +215,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <span>
               <strong>Open Worklist</strong>
               Continue working on reports
+            </span>
+          </button>
+
+          <button
+            className="quick-action"
+            onClick={() => onNavigate("history")}
+          >
+            <span className="quick-action-icon">
+              <History size={18} />
+            </span>
+            <span>
+              <strong>Version History</strong>
+              View report versions and changes
             </span>
           </button>
         </section>

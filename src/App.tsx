@@ -14,7 +14,7 @@ import LoginPage from "./pages/LoginPage";
 import { useAuth } from "./store/AuthContext";
 
 function App() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isAdmin } = useAuth();
 
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
@@ -59,7 +59,13 @@ function App() {
       case "history":
         return <VersionHistory onSelectReport={handleSelectReport} />;
       case "test-management":
-        return <TestManagement />;
+        // Admin-only page — an employee reaching this route falls back to the
+        // dashboard rather than seeing Test Management.
+        return isAdmin ? (
+          <TestManagement />
+        ) : (
+          <Dashboard onNavigate={handleNavigate} />
+        );
       default:
         return <Dashboard onNavigate={handleNavigate} />;
     }
@@ -67,7 +73,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <TopNav activePage={activePage} onNavigate={handleNavigate} />
+      <TopNav onNavigate={handleNavigate} />
 
       <main className="main-content">
         <div className="page-content">{renderPage()}</div>

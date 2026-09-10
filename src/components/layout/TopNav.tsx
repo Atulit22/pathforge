@@ -1,11 +1,9 @@
+import { useEffect, useRef, useState } from "react";
 import {
-  LayoutDashboard,
-  ClipboardList,
-  FilePlus2,
-  History,
   FlaskConical,
   Stethoscope,
   LogOut,
+  ChevronDown,
 } from "lucide-react";
 
 import { useAuth } from "../../store/AuthContext";
@@ -23,36 +21,27 @@ export type Page =
   | "test-management";
 
 interface TopNavProps {
-  activePage: Page;
   onNavigate: (page: Page) => void;
 }
 
-type NavItem = {
-  id: Page;
-  label: string;
-  icon: typeof LayoutDashboard;
-  adminOnly?: boolean;
-};
-
-// Patients is intentionally not a top-level tab — it is reached from the
-// Dashboard (Total Patients / Manage Patients) and the New Report wizard.
-const NAV_ITEMS: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "worklist", label: "Worklist", icon: ClipboardList },
-  { id: "new-report", label: "New Report", icon: FilePlus2 },
-  { id: "history", label: "Version History", icon: History },
-  {
-    id: "test-management",
-    label: "Test Management",
-    icon: FlaskConical,
-    adminOnly: true,
-  },
-];
-
-export default function TopNav({ activePage, onNavigate }: TopNavProps) {
+/**
+ * Branding + account header. It carries no primary page navigation — workflows
+ * are started from the Dashboard. The only navigational element is an admin-only
+ * secondary menu that exposes Test Management.
+ */
+export default function TopNav({ onNavigate }: TopNavProps) {
   const { isAdmin, user, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDocClick(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [menuOpen]);
 
   return (
     <header className="top-nav">
@@ -71,35 +60,47 @@ export default function TopNav({ activePage, onNavigate }: TopNavProps) {
         </span>
       </button>
 
-      <nav className="top-nav-links" aria-label="Primary">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const active = activePage === item.id;
-
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className={`top-nav-link${active ? " is-active" : ""}`}
-              aria-current={active ? "page" : undefined}
-              onClick={() => onNavigate(item.id)}
-            >
-              <Icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      <div className="top-nav-spacer" />
 
       <div className="top-nav-user">
         <span className="top-nav-identity">
-          <span className="top-nav-email">
-            {user?.email ?? "Signed in"}
-          </span>
+          <span className="top-nav-email">{user?.email ?? "Signed in"}</span>
           <span className="top-nav-role">
-            {isAdmin ? "Administrator" : "Clinical staff"}
+            {isAdmin ? "Admin" : "Clinical staff"}
           </span>
         </span>
+
+        {isAdmin && (
+          <div className="top-nav-menu" ref={menuRef}>
+            <button
+              type="button"
+              className="top-nav-menu-trigger"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((open) => !open)}
+              title="Admin menu"
+            >
+              <FlaskConical size={16} />
+              <ChevronDown size={14} />
+            </button>
+
+            {menuOpen && (
+              <div className="top-nav-menu-list" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onNavigate("test-management");
+                  }}
+                >
+                  <FlaskConical size={15} />
+                  Test Management
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           type="button"
