@@ -112,6 +112,11 @@ export interface AuditEntry {
   version: number;
 }
 
+export interface FinalizeOutcome extends ValidationResult {
+  /** The finalized version, present only when `valid` is true. */
+  report?: Report;
+}
+
 interface ReportContextType {
   reports: Report[];
 
@@ -125,9 +130,10 @@ interface ReportContextType {
 
   /**
    * Validate and finalize a draft version. When validation fails the report is
-   * left untouched and the failing checks are returned.
+   * left untouched and the failing checks are returned; on success the finalized
+   * version (with issue number and finalized-at) is returned too.
    */
-  finalizeReport: (id: string) => Promise<ValidationResult>;
+  finalizeReport: (id: string) => Promise<FinalizeOutcome>;
 
   /** Create a draft amendment of a finalized version. */
   createAmendment: (
@@ -380,7 +386,7 @@ export function ReportProvider({ children }: { children: ReactNode }) {
   );
 
   const finalizeReport = useCallback(
-    async (id: string): Promise<ValidationResult> => {
+    async (id: string): Promise<FinalizeOutcome> => {
       const { reportId, version } = parseId(id);
       const record = recordsRef.current.get(reportId);
       const snapshot = record?.versions.find((entry) => entry.version === version);
@@ -430,7 +436,15 @@ export function ReportProvider({ children }: { children: ReactNode }) {
       }
 
       await refresh();
-      return { valid: true, errors: [] };
+      return {
+        valid: true,
+        errors: [],
+        report: toReport(
+          recordsRef.current,
+          metaRef.current,
+          makeId(reportId, version)
+        ),
+      };
     },
     [service, refresh]
   );

@@ -282,12 +282,16 @@ function ReportEditor({
     }
 
     // Finalized — let the user choose what happens next (spec §19). Nothing
-    // prints or downloads on its own; the X just closes.
-    const finalized = getReport(report.id);
+    // prints or downloads on its own; the X just closes. Read the freshly
+    // finalized version from the finalize result, not getReport(): the hook's
+    // reports array has not re-rendered yet inside this handler.
+    const finalized = result.report;
     const choice = await showFinalizedDialog({
       reportNo: finalized?.issueNumber ?? model.reportNo,
       version: finalized?.version ?? report.version,
-      finalizedOn: formatReportDate(finalized?.finalizedAt),
+      finalizedOn: formatReportDate(
+        finalized?.finalizedAt ?? new Date().toISOString()
+      ),
     });
     if (choice === "download") await handleDownloadPdf();
     else if (choice === "print") handlePrint();
