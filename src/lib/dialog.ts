@@ -10,6 +10,10 @@ import Swal, {
  *
  * `buttonsStyling: false` hands all button appearance to the .pf-swal-* CSS in
  * index.css; `customClass` maps each Swal part onto those classes.
+ *
+ * Every helper sets `showConfirmButton` / `showDenyButton` / `showCancelButton`
+ * explicitly. Only confirmations show a Cancel/No; success and info
+ * notifications show a single OK.
  */
 const BASE_CLASSES = {
   container: "pf-swal",
@@ -58,18 +62,21 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
 } as const;
 
-// --- simple notifications ----------------------------------------------------
+// --- simple notifications ---------------------------------------------------
+// One action button ("OK") and the X. Never a Cancel or "No". No auto-close.
 interface NotifyOptions {
   title: string;
   text?: string;
 }
 
 function notify(icon: SweetAlertIcon, options: NotifyOptions) {
-  // No auto-close: the dialog stays until the user dismisses it (OK or X).
   return dialog.fire({
     icon,
     title: options.title,
     text: options.text,
+    showConfirmButton: true,
+    showDenyButton: false,
+    showCancelButton: false,
     confirmButtonText: "OK",
   });
 }
@@ -87,18 +94,20 @@ export function notifyErrorList(title: string, messages: string[]) {
     html: `<ul class="pf-swal-list">${messages
       .map((message) => `<li>${escapeHtml(message)}</li>`)
       .join("")}</ul>`,
+    showConfirmButton: true,
+    showDenyButton: false,
+    showCancelButton: false,
     confirmButtonText: "OK",
   });
 }
 
-// --- confirmations ----------------------------------------------------------
-// One visible action button only; the X / Esc / backdrop are the "not now".
+// --- confirmations --------------------------------------------------------
+// Two buttons: a Cancel and the action. The X / Esc / backdrop also cancel.
 interface ConfirmOptions {
   title: string;
   text?: string;
   html?: string;
   confirmText?: string;
-  /** Kept for source compatibility; no cancel button is rendered. */
   cancelText?: string;
   icon?: SweetAlertIcon;
 }
@@ -110,13 +119,16 @@ export async function confirmAction(options: ConfirmOptions): Promise<boolean> {
     title: options.title,
     text: options.text,
     html: options.html,
-    showCancelButton: false,
+    showConfirmButton: true,
+    showDenyButton: false,
+    showCancelButton: true,
     confirmButtonText: options.confirmText ?? "Continue",
+    cancelButtonText: options.cancelText ?? "Cancel",
   });
   return result.isConfirmed;
 }
 
-/** Destructive confirm — red action button. */
+/** Destructive confirm — red action button, plus a Cancel. */
 export async function confirmDestructive(
   options: ConfirmOptions
 ): Promise<boolean> {
@@ -125,8 +137,11 @@ export async function confirmDestructive(
     title: options.title,
     text: options.text,
     html: options.html,
-    showCancelButton: false,
+    showConfirmButton: true,
+    showDenyButton: false,
+    showCancelButton: true,
     confirmButtonText: options.confirmText ?? "Delete",
+    cancelButtonText: options.cancelText ?? "Cancel",
     customClass: {
       ...BASE_CLASSES,
       confirmButton: "pf-swal-btn pf-swal-btn--danger",
@@ -151,8 +166,11 @@ export async function promptText(options: {
     inputLabel: options.label,
     inputPlaceholder: options.placeholder,
     inputAttributes: { "aria-label": options.label },
-    showCancelButton: false,
+    showConfirmButton: true,
+    showDenyButton: false,
+    showCancelButton: true,
     confirmButtonText: options.confirmText ?? "Confirm",
+    cancelButtonText: "Cancel",
     inputValidator: (value: string) =>
       value && value.trim()
         ? undefined
@@ -162,7 +180,7 @@ export async function promptText(options: {
   return result.isConfirmed && value ? value : null;
 }
 
-// --- the finalized-report dialog -------------------------------------------
+// --- the finalized-report dialog -----------------------------------------
 export type FinalizedChoice = "download" | "print" | "close";
 
 interface FinalizedDialogInput {
@@ -173,9 +191,9 @@ interface FinalizedDialogInput {
 
 /**
  * "Report finalized" dialog — matches the PathForge reference layout: green
- * success mark, locked-report note, a metadata card, then Download PDF
- * (primary) and Print Report (secondary). The X closes without running either
- * action.
+ * success mark, locked-report note, a metadata card, a divider, then
+ * Download PDF (primary) + Print Report (secondary) on one row and Close as a
+ * light action below. The X closes without running either action.
  */
 export async function showFinalizedDialog(
   input: FinalizedDialogInput
@@ -194,15 +212,17 @@ export async function showFinalizedDialog(
     html: card,
     showConfirmButton: true,
     showDenyButton: true,
-    showCancelButton: false,
+    showCancelButton: true,
     reverseButtons: false,
     confirmButtonText: `${ICONS.download}<span>Download PDF</span>`,
     denyButtonText: `${ICONS.printer}<span>Print Report</span>`,
+    cancelButtonText: "Close",
     customClass: {
       ...BASE_CLASSES,
+      actions: "pf-swal-actions pf-swal-actions--finalized",
       confirmButton: "pf-swal-btn pf-swal-btn--primary pf-swal-btn--icon",
       denyButton: "pf-swal-btn pf-swal-btn--secondary pf-swal-btn--icon",
-      cancelButton: "pf-swal-btn pf-swal-btn--ghost",
+      cancelButton: "pf-swal-btn pf-swal-btn--ghost pf-swal-btn--close",
     },
   });
 
