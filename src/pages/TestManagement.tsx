@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import { formatReferenceRange } from "../components/report/referenceRange";
 import AddTestForm from "../components/tests/AddTestForm";
 import AddParameterForm from "../components/tests/AddParameterForm";
 
@@ -385,29 +386,6 @@ export default function TestManagement() {
       testId,
       parameter.id
     );
-  }
-
-  function getReferenceRange(
-    parameter: TestParameter
-  ) {
-    if (!parameter.referenceRange) {
-      return "-";
-    }
-
-    if (parameter.referenceRange.text) {
-      return parameter.referenceRange.text;
-    }
-
-    const values = [
-      parameter.referenceRange.min,
-      parameter.referenceRange.max,
-    ].filter(
-      (value) => value !== undefined
-    );
-
-    return values.length > 0
-      ? values.join(" - ")
-      : "-";
   }
 
   return (
@@ -879,8 +857,8 @@ export default function TestManagement() {
                                   </span>
 
                                   <span>
-                                    {getReferenceRange(
-                                      parameter
+                                    {formatReferenceRange(
+                                      parameter.referenceRange
                                     )}
                                   </span>
 

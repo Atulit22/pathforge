@@ -319,9 +319,30 @@ export async function loadWorkspaceTests(): Promise<{
   };
 }
 
+/**
+ * Replace the whole workspace test catalog. The delete-then-insert runs inside a
+ * transaction so a failure part way through can never leave the catalog empty or
+ * partially written — callers either get the new catalog or keep the old one.
+ */
 export async function saveWorkspaceTests(tests: LaboratoryTest[]): Promise<void> {
   const db = await getDatabase();
 
+  await db.execute("BEGIN");
+  try {
+    await writeWorkspaceTests(db, tests);
+    await db.execute("COMMIT");
+  } catch (error) {
+    await db.execute("ROLLBACK").catch(() => {
+      // Preserve the original failure; a failed rollback is not more useful.
+    });
+    throw error;
+  }
+}
+
+async function writeWorkspaceTests(
+  db: Database,
+  tests: LaboratoryTest[]
+): Promise<void> {
   await db.execute("DELETE FROM workspace_test_parameters");
   await db.execute("DELETE FROM workspace_tests");
 

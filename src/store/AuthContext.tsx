@@ -49,31 +49,41 @@ interface AuthContextType {
    ADMIN ROLE RESOLUTION
 ========================================= */
 
+/** True when this metadata object carries an "admin" claim in any usual shape. */
+function hasAdminClaim(meta: Record<string, unknown>): boolean {
+  const isAdminWord = (value: unknown): boolean =>
+    typeof value === "string" && value.trim().toLowerCase() === "admin";
+
+  if (isAdminWord(meta.role) || isAdminWord(meta.user_role)) return true;
+  if (meta.is_admin === true || meta.isAdmin === true || meta.admin === true) {
+    return true;
+  }
+
+  const roles = meta.roles ?? meta.role;
+  return Array.isArray(roles) && roles.some(isAdminWord);
+}
+
 /**
- * True when the Supabase user carries an "admin" claim. Checks the common
- * places people put it, in both `app_metadata` (server-set) and `user_metadata`
- * (dashboard-editable), case-insensitively.
+ * True when the Supabase user carries an "admin" claim.
+ *
+ * Only `app_metadata` counts, because `user_metadata` is writable by the signed-in
+ * user themselves (`supabase.auth.updateUser({ data: { role: 'admin' } })`) —
+ * honoring it would let any account self-promote. `user_metadata` is accepted in
+ * development builds only, so the Supabase dashboard's User Metadata box stays a
+ * convenient way to test the admin screens locally.
  */
 function resolveIsAdmin(user: User | null): boolean {
   if (!user) return false;
 
-  const sources: Record<string, unknown>[] = [
-    (user.app_metadata ?? {}) as Record<string, unknown>,
-    (user.user_metadata ?? {}) as Record<string, unknown>,
-  ];
+  if (hasAdminClaim((user.app_metadata ?? {}) as Record<string, unknown>)) {
+    return true;
+  }
 
-  const isAdminWord = (value: unknown): boolean =>
-    typeof value === "string" && value.trim().toLowerCase() === "admin";
-
-  for (const meta of sources) {
-    if (isAdminWord(meta.role)) return true;
-    if (isAdminWord(meta.user_role)) return true;
-    if (meta.is_admin === true || meta.isAdmin === true || meta.admin === true) {
-      return true;
-    }
-
-    const roles = meta.roles ?? meta.role;
-    if (Array.isArray(roles) && roles.some(isAdminWord)) return true;
+  if (
+    import.meta.env.DEV &&
+    hasAdminClaim((user.user_metadata ?? {}) as Record<string, unknown>)
+  ) {
+    return true;
   }
 
   return false;

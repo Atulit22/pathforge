@@ -11,8 +11,6 @@ interface PrintableReportProps {
  * rules in index.css, so `window.print()` drives paper printing.
  */
 export default function PrintableReport({ model }: PrintableReportProps) {
-  const generatedAt = new Date().toLocaleString();
-
   return (
     <div
       className={`print-report${model.isFinalized ? "" : " pr-draft"}`}
@@ -120,7 +118,7 @@ export default function PrintableReport({ model }: PrintableReportProps) {
       <footer className="pr-footer">
         <span>{model.footer.reference}</span>
         <span className="pr-disclaimer">{model.footer.disclaimer}</span>
-        <span>Generated {generatedAt}</span>
+        <span>Generated {model.generatedAt}</span>
       </footer>
     </div>
   );

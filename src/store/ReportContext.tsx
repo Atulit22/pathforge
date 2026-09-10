@@ -87,6 +87,20 @@ export interface Report {
   updatedAt?: string;
   finalizedAt?: string;
 
+  // Issue identity assigned at finalization. Per the amendment spec this is
+  // the visible surface change between a report and its amendment.
+  issueNumber?: string;
+  issueDate?: string;
+
+  // Finalization / amendment provenance recorded by the domain. A finalized
+  // version is invalid without it, so it must survive the trip into React.
+  finalizedBy?: string;
+  amendedAt?: string;
+  amendedBy?: string;
+  amendmentType?: string;
+  amendmentReason?: string;
+  supersedesVersion?: number;
+
   supersedesReportId?: string;
 }
 
@@ -146,6 +160,13 @@ interface VersionSnapshot {
   status: "draft" | "finalized";
   createdAt: string;
   finalizedAt?: string;
+  issueNumber?: string;
+  issueDate?: string;
+  finalizedBy?: string;
+  amendedAt?: string;
+  amendedBy?: string;
+  amendmentType?: string;
+  amendmentReason?: string;
   supersedesVersion: number | null;
   content: WorkspaceReportContent;
 }
@@ -249,6 +270,13 @@ export function ReportProvider({ children }: { children: ReactNode }) {
             status: version.lifecycle_state === "finalized" ? "finalized" : "draft",
             createdAt: draftTimes.get(version.version) ?? meta.createdAt,
             finalizedAt: version.finalized_at ?? version.amended_at,
+            issueNumber: version.issue_number,
+            issueDate: version.issue_date,
+            finalizedBy: version.finalized_by,
+            amendedAt: version.amended_at,
+            amendedBy: version.amended_by,
+            amendmentType: version.amendment_type,
+            amendmentReason: version.amendment_reason,
             supersedesVersion: version.supersedes ? version.supersedes.version : null,
             content: readWorkspaceContent(version),
           })),
@@ -518,6 +546,14 @@ function buildReport(
     version: snapshot.version,
     createdAt: snapshot.createdAt,
     finalizedAt: snapshot.finalizedAt,
+    issueNumber: snapshot.issueNumber,
+    issueDate: snapshot.issueDate,
+    finalizedBy: snapshot.finalizedBy,
+    amendedAt: snapshot.amendedAt,
+    amendedBy: snapshot.amendedBy,
+    amendmentType: snapshot.amendmentType,
+    amendmentReason: snapshot.amendmentReason,
+    supersedesVersion: snapshot.supersedesVersion ?? undefined,
     supersedesReportId:
       snapshot.supersedesVersion != null
         ? makeId(reportId, snapshot.supersedesVersion)

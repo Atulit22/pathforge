@@ -4433,6 +4433,418 @@ button {
 }
 
 /* =========================================
+   REPORT PRESENTATION  (shared by screen preview and print)
+   One rule set. The preview must not diverge from what prints.
+========================================= */
+
+/* The report output node is hidden until previewing, and always printed. */
+.report-output {
+  display: none;
+}
+
+.report-output.is-preview {
+  display: block;
+  margin: 24px 0 8px;
+  padding: 20px;
+  background: #5b6472;
+  border-radius: 12px;
+}
+
+.report-output.is-preview .print-report.pr-draft::before {
+  position: absolute;
+}
+
+.report-output > * {
+  position: relative;
+  z-index: 1;
+}
+
+.report-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #e2e8f0;
+}
+
+.report-output.is-preview .print-report {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 14mm 12mm;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ---- draft watermark ---- */
+
+.print-report.pr-draft::before {
+  content: "DRAFT";
+  position: fixed;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-32deg);
+  font-family: Arial, sans-serif;
+  font-size: 130pt;
+  font-weight: 700;
+  letter-spacing: 8pt;
+  color: rgba(190, 30, 45, 0.07);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ---- letterhead ---- */
+
+.pr-letterhead {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  padding-bottom: 8px;
+  border-bottom: 2.5pt solid #1f3a5f;
+}
+
+.pr-brand h1 {
+  margin: 0;
+  font-family: Arial, "Segoe UI", sans-serif;
+  font-size: 20pt;
+  font-weight: 700;
+  letter-spacing: 0.5pt;
+  color: #1f3a5f;
+}
+
+.pr-tagline {
+  margin: 3px 0 0;
+  font-family: Arial, sans-serif;
+  font-size: 8pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2pt;
+  color: #5a6673;
+}
+
+.pr-accred {
+  margin: 5px 0 0;
+  font-family: Arial, sans-serif;
+  font-size: 7.5pt;
+  color: #8a929c;
+}
+
+.pr-docmeta {
+  text-align: right;
+  font-family: Arial, sans-serif;
+  white-space: nowrap;
+}
+
+.pr-doctitle {
+  margin: 0 0 6px;
+  font-size: 12pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5pt;
+  color: #1f3a5f;
+}
+
+.pr-docmeta dl {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.pr-docmeta dl > div {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 12px;
+  justify-content: end;
+}
+
+.pr-docmeta dt {
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5pt;
+  color: #8a929c;
+}
+
+.pr-docmeta dd {
+  margin: 0;
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* ---- draft banner ---- */
+
+.pr-draftbanner {
+  margin: 12px 0 0;
+  padding: 6px 10px;
+  border: 1pt solid #c2410c;
+  border-radius: 2px;
+  background: #fff7ed !important;
+  font-family: Arial, sans-serif;
+  font-size: 8pt;
+  font-weight: 600;
+  color: #9a3412;
+}
+
+/* ---- patient / specimen band ---- */
+
+.pr-band {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 16px;
+  border: 0.75pt solid #c8ced6;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.pr-band > div {
+  padding: 7px 12px;
+  border-bottom: 0.75pt solid #e3e7ec;
+}
+
+.pr-band > div:nth-child(odd) {
+  border-right: 0.75pt solid #e3e7ec;
+}
+
+.pr-band > div:nth-last-child(-n + 2) {
+  border-bottom: none;
+}
+
+.pr-band dt {
+  font-family: Arial, sans-serif;
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6pt;
+  color: #5a6673;
+}
+
+.pr-band dd {
+  margin: 3px 0 0;
+  font-family: Arial, sans-serif;
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* ---- sections ---- */
+
+/* Sections may span pages (a long results section must be allowed to break);
+   smaller units below opt back into "keep together". */
+.pr-section {
+  margin-top: 16px;
+  break-inside: auto;
+}
+
+.pr-section > h2 {
+  margin: 0 0 7px;
+  padding-bottom: 3px;
+  border-bottom: 1pt solid #1f3a5f;
+  font-family: Arial, "Segoe UI", sans-serif;
+  font-size: 9pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2pt;
+  color: #1f3a5f;
+  break-after: avoid;
+}
+
+.pr-narrative {
+  margin: 0;
+  font-size: 10.5pt;
+  line-height: 1.6;
+  color: #22272e;
+  white-space: pre-wrap;
+  text-align: justify;
+}
+
+.pr-section.pr-diagnosis {
+  break-inside: avoid;
+}
+
+.pr-diagnosis .pr-narrative {
+  padding: 8px 12px;
+  border-left: 3pt solid #1f3a5f;
+  background: #f4f7fa !important;
+  font-size: 11pt;
+  font-weight: 500;
+}
+
+/* ---- results table ---- */
+
+.pr-results-group {
+  break-inside: avoid;
+}
+
+.pr-results-group + .pr-results-group {
+  margin-top: 12px;
+}
+
+.pr-results-heading {
+  margin: 0 0 4px;
+  font-family: Arial, "Segoe UI", sans-serif;
+  font-size: 8.5pt;
+  font-weight: 700;
+  letter-spacing: 0.3pt;
+  color: #1a1a1a;
+  break-after: avoid;
+}
+
+.pr-results {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: Arial, "Segoe UI", sans-serif;
+  font-size: 9pt;
+}
+
+/* Repeat column headers when a single test's table spans a page. */
+.pr-results thead {
+  display: table-header-group;
+}
+
+.pr-results tr {
+  break-inside: avoid;
+}
+
+.pr-results th:nth-child(1),
+.pr-results td:nth-child(1) {
+  width: 42%;
+}
+
+.pr-results th:nth-child(2),
+.pr-results td:nth-child(2) {
+  width: 14%;
+  padding-right: 12px;
+}
+
+.pr-results th:nth-child(3),
+.pr-results td:nth-child(3) {
+  width: 16%;
+}
+
+.pr-results th:nth-child(4),
+.pr-results td:nth-child(4) {
+  width: 28%;
+}
+
+.pr-results td {
+  word-break: break-word;
+}
+
+.pr-results thead th {
+  padding: 5px 8px;
+  text-align: left;
+  border-bottom: 1.5pt solid #1f3a5f;
+  font-size: 7.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5pt;
+  color: #5a6673;
+}
+
+.pr-results tbody td {
+  padding: 6px 8px;
+  border-bottom: 0.5pt solid #e3e7ec;
+  color: #1a1a1a;
+  vertical-align: top;
+}
+
+.pr-results tbody tr:last-child td {
+  border-bottom: 1pt solid #c8ced6;
+}
+
+.pr-results .pr-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pr-results .pr-value {
+  font-weight: 700;
+}
+
+/* ---- authorisation ---- */
+
+.pr-signoff {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 26px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pr-sig {
+  font-family: Arial, sans-serif;
+}
+
+.pr-sigline {
+  margin-top: 30px;
+  border-top: 0.75pt solid #1a1a1a;
+}
+
+.pr-sigrole {
+  margin: 4px 0 0;
+  font-size: 8pt;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.pr-signote {
+  margin: 2px 0 0;
+  font-size: 7.5pt;
+  color: #5a6673;
+}
+
+.pr-authnote {
+  margin: 14px 0 0;
+  font-family: Arial, sans-serif;
+  font-size: 7.5pt;
+  font-style: italic;
+  color: #5a6673;
+}
+
+.pr-endmark {
+  margin: 18px 0 0;
+  text-align: center;
+  font-family: Arial, sans-serif;
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 2.5pt;
+  color: #8a929c;
+}
+
+/* ---- footer ---- */
+
+.pr-footer {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 0.5pt solid #e3e7ec;
+  font-family: Arial, sans-serif;
+  font-size: 7pt;
+  color: #8a929c;
+}
+
+.pr-footer .pr-disclaimer {
+  flex: 1;
+  text-align: center;
+}
+
+/* =========================================
    PRINT REPORT  —  house-format pathology report
    Rendered for window.print() (paper + Save as PDF).
 ========================================= */
@@ -4475,6 +4887,15 @@ button {
     visibility: visible;
   }
 
+  .report-output,
+  .report-output.is-preview {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    border-radius: 0 !important;
+  }
+
   /* ---- report canvas ---- */
 
   .print-report {
@@ -4501,363 +4922,6 @@ button {
     z-index: 1;
   }
 
-  /* ---- draft watermark ---- */
-
-  .print-report.pr-draft::before {
-    content: "DRAFT";
-    position: fixed;
-    top: 45%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(-32deg);
-    font-family: Arial, sans-serif;
-    font-size: 130pt;
-    font-weight: 700;
-    letter-spacing: 8pt;
-    color: rgba(190, 30, 45, 0.07);
-    z-index: 0;
-    pointer-events: none;
-  }
-
-  /* ---- letterhead ---- */
-
-  .pr-letterhead {
-    display: flex !important;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 24px;
-    padding-bottom: 8px;
-    border-bottom: 2.5pt solid #1f3a5f;
-  }
-
-  .pr-brand h1 {
-    margin: 0;
-    font-family: Arial, "Segoe UI", sans-serif;
-    font-size: 20pt;
-    font-weight: 700;
-    letter-spacing: 0.5pt;
-    color: #1f3a5f;
-  }
-
-  .pr-tagline {
-    margin: 3px 0 0;
-    font-family: Arial, sans-serif;
-    font-size: 8pt;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 2pt;
-    color: #5a6673;
-  }
-
-  .pr-accred {
-    margin: 5px 0 0;
-    font-family: Arial, sans-serif;
-    font-size: 7.5pt;
-    color: #8a929c;
-  }
-
-  .pr-docmeta {
-    text-align: right;
-    font-family: Arial, sans-serif;
-    white-space: nowrap;
-  }
-
-  .pr-doctitle {
-    margin: 0 0 6px;
-    font-size: 12pt;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.5pt;
-    color: #1f3a5f;
-  }
-
-  .pr-docmeta dl {
-    margin: 0;
-    display: grid;
-    gap: 2px;
-  }
-
-  .pr-docmeta dl > div {
-    display: grid;
-    grid-template-columns: auto auto;
-    gap: 12px;
-    justify-content: end;
-  }
-
-  .pr-docmeta dt {
-    font-size: 7.5pt;
-    text-transform: uppercase;
-    letter-spacing: 0.5pt;
-    color: #8a929c;
-  }
-
-  .pr-docmeta dd {
-    margin: 0;
-    font-size: 8.5pt;
-    font-weight: 600;
-    color: #1a1a1a;
-  }
-
-  /* ---- draft banner ---- */
-
-  .pr-draftbanner {
-    margin: 12px 0 0;
-    padding: 6px 10px;
-    border: 1pt solid #c2410c;
-    border-radius: 2px;
-    background: #fff7ed !important;
-    font-family: Arial, sans-serif;
-    font-size: 8pt;
-    font-weight: 600;
-    color: #9a3412;
-  }
-
-  /* ---- patient / specimen band ---- */
-
-  .pr-band {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    margin-top: 16px;
-    border: 0.75pt solid #c8ced6;
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .pr-band > div {
-    padding: 7px 12px;
-    border-bottom: 0.75pt solid #e3e7ec;
-  }
-
-  .pr-band > div:nth-child(odd) {
-    border-right: 0.75pt solid #e3e7ec;
-  }
-
-  .pr-band > div:nth-last-child(-n + 2) {
-    border-bottom: none;
-  }
-
-  .pr-band dt {
-    font-family: Arial, sans-serif;
-    font-size: 7pt;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.6pt;
-    color: #5a6673;
-  }
-
-  .pr-band dd {
-    margin: 3px 0 0;
-    font-family: Arial, sans-serif;
-    font-size: 9.5pt;
-    font-weight: 600;
-    color: #1a1a1a;
-  }
-
-  /* ---- sections ---- */
-
-  /* Sections may span pages (a long results section must be allowed to break);
-     smaller units below opt back into "keep together". */
-  .pr-section {
-    margin-top: 16px;
-    break-inside: auto;
-  }
-
-  .pr-section > h2 {
-    margin: 0 0 7px;
-    padding-bottom: 3px;
-    border-bottom: 1pt solid #1f3a5f;
-    font-family: Arial, "Segoe UI", sans-serif;
-    font-size: 9pt;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.2pt;
-    color: #1f3a5f;
-    break-after: avoid;
-  }
-
-  .pr-narrative {
-    margin: 0;
-    font-size: 10.5pt;
-    line-height: 1.6;
-    color: #22272e;
-    white-space: pre-wrap;
-    text-align: justify;
-  }
-
-  .pr-section.pr-diagnosis {
-    break-inside: avoid;
-  }
-
-  .pr-diagnosis .pr-narrative {
-    padding: 8px 12px;
-    border-left: 3pt solid #1f3a5f;
-    background: #f4f7fa !important;
-    font-size: 11pt;
-    font-weight: 500;
-  }
-
-  /* ---- results table ---- */
-
-  .pr-results-group {
-    break-inside: avoid;
-  }
-
-  .pr-results-group + .pr-results-group {
-    margin-top: 12px;
-  }
-
-  .pr-results-heading {
-    margin: 0 0 4px;
-    font-family: Arial, "Segoe UI", sans-serif;
-    font-size: 8.5pt;
-    font-weight: 700;
-    letter-spacing: 0.3pt;
-    color: #1a1a1a;
-    break-after: avoid;
-  }
-
-  .pr-results {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    font-family: Arial, "Segoe UI", sans-serif;
-    font-size: 9pt;
-  }
-
-  /* Repeat column headers when a single test's table spans a page. */
-  .pr-results thead {
-    display: table-header-group;
-  }
-
-  .pr-results tr {
-    break-inside: avoid;
-  }
-
-  .pr-results th:nth-child(1),
-  .pr-results td:nth-child(1) {
-    width: 42%;
-  }
-
-  .pr-results th:nth-child(2),
-  .pr-results td:nth-child(2) {
-    width: 14%;
-    padding-right: 12px;
-  }
-
-  .pr-results th:nth-child(3),
-  .pr-results td:nth-child(3) {
-    width: 16%;
-  }
-
-  .pr-results th:nth-child(4),
-  .pr-results td:nth-child(4) {
-    width: 28%;
-  }
-
-  .pr-results td {
-    word-break: break-word;
-  }
-
-  .pr-results thead th {
-    padding: 5px 8px;
-    text-align: left;
-    border-bottom: 1.5pt solid #1f3a5f;
-    font-size: 7.5pt;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5pt;
-    color: #5a6673;
-  }
-
-  .pr-results tbody td {
-    padding: 6px 8px;
-    border-bottom: 0.5pt solid #e3e7ec;
-    color: #1a1a1a;
-    vertical-align: top;
-  }
-
-  .pr-results tbody tr:last-child td {
-    border-bottom: 1pt solid #c8ced6;
-  }
-
-  .pr-results .pr-num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .pr-results .pr-value {
-    font-weight: 700;
-  }
-
-  /* ---- authorisation ---- */
-
-  .pr-signoff {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    gap: 40px;
-    margin-top: 26px;
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  .pr-sig {
-    font-family: Arial, sans-serif;
-  }
-
-  .pr-sigline {
-    margin-top: 30px;
-    border-top: 0.75pt solid #1a1a1a;
-  }
-
-  .pr-sigrole {
-    margin: 4px 0 0;
-    font-size: 8pt;
-    font-weight: 700;
-    color: #1a1a1a;
-  }
-
-  .pr-signote {
-    margin: 2px 0 0;
-    font-size: 7.5pt;
-    color: #5a6673;
-  }
-
-  .pr-authnote {
-    margin: 14px 0 0;
-    font-family: Arial, sans-serif;
-    font-size: 7.5pt;
-    font-style: italic;
-    color: #5a6673;
-  }
-
-  .pr-endmark {
-    margin: 18px 0 0;
-    text-align: center;
-    font-family: Arial, sans-serif;
-    font-size: 7.5pt;
-    text-transform: uppercase;
-    letter-spacing: 2.5pt;
-    color: #8a929c;
-  }
-
-  /* ---- footer ---- */
-
-  .pr-footer {
-    display: flex !important;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
-    margin-top: 10px;
-    padding-top: 6px;
-    border-top: 0.5pt solid #e3e7ec;
-    font-family: Arial, sans-serif;
-    font-size: 7pt;
-    color: #8a929c;
-  }
-
-  .pr-footer .pr-disclaimer {
-    flex: 1;
-    text-align: center;
-  }
 
   input,
   textarea,

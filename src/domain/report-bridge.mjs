@@ -293,3 +293,73 @@ export function generateIssueNumber(now = new Date(), random = Math.random) {
   const suffix = String(Math.floor(random() * 1_000_000)).padStart(6, '0');
   return `INV-${year}-${suffix}`;
 }
+
+/**
+ * @typedef {{
+ *   reportId: string,
+ *   version: number,
+ *   isFinalized: boolean,
+ *   issueNumber?: string,
+ *   issueDate?: string,
+ *   finalizedAt?: string,
+ *   finalizedBy?: string,
+ *   amendedAt?: string,
+ *   amendedBy?: string,
+ *   amendmentType?: string,
+ *   amendmentReason?: string,
+ *   supersedesVersion?: number,
+ *   content: WorkspaceReportContent
+ * }} WorkspaceVersionInput
+ */
+
+/**
+ * Rebuild the domain `ReportVersion` the workspace is currently showing, so the
+ * canonical document model can be built from it.
+ *
+ * A finalized version is only valid with the provenance the domain recorded at
+ * finalization — an original carries `finalized_by`/`finalized_at`, an amendment
+ * carries `amended_by`/`amended_at` plus its amendment type and reason. Every one
+ * of those must be carried through from the stored report; losing any of them
+ * makes `assertValidReport` reject the version, which is what previously took the
+ * report screen down after finalizing.
+ *
+ * @param {WorkspaceVersionInput} input
+ * @param {string} [fallbackActor] actor used only when a stored report predates
+ *   provenance propagation; matches AuthContext's default actor.
+ * @returns {import('./contracts.mjs').ReportVersion}
+ */
+export function buildWorkspaceReportVersion(input, fallbackActor = 'workspace') {
+  const reportId = String(input.reportId || '').split('::')[0] || 'unassigned';
+
+  const supersedes =
+    typeof input.supersedesVersion === 'number' ? { report_id: reportId, version: input.supersedesVersion } : null;
+
+  /** @type {Record<string, unknown>} */
+  const version = {
+    report_id: reportId,
+    version: input.version,
+    lifecycle_state: input.isFinalized ? 'finalized' : 'draft',
+    supersedes,
+    source_catalog_version: WORKSPACE_CATALOG_VERSION,
+    resolved_payload: buildResolvedPayload(input.content),
+  };
+
+  if (!input.isFinalized) {
+    return /** @type {import('./contracts.mjs').ReportVersion} */ (version);
+  }
+
+  version.issue_number = input.issueNumber || `${reportId}-V${input.version}`;
+  version.issue_date = String(input.issueDate || input.finalizedAt || '').slice(0, 10);
+
+  if (supersedes) {
+    version.amendment_type = input.amendmentType || 'correction';
+    version.amendment_reason = input.amendmentReason || 'Amendment';
+    version.amended_by = input.amendedBy || input.finalizedBy || fallbackActor;
+    version.amended_at = input.amendedAt || input.finalizedAt || new Date().toISOString();
+  } else {
+    version.finalized_by = input.finalizedBy || fallbackActor;
+    version.finalized_at = input.finalizedAt || new Date().toISOString();
+  }
+
+  return /** @type {import('./contracts.mjs').ReportVersion} */ (version);
+}

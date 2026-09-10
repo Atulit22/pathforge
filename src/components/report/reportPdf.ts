@@ -202,7 +202,7 @@ export async function buildReportPdf(model: ReportModel): Promise<jsPDF> {
   doc.text(model.endOfReport, PAGE_W / 2, y, { align: "center" });
 
   // ---- footer on every page ----
-  const generatedAt = new Date().toLocaleString();
+  const generatedAt = model.generatedAt;
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page += 1) {
     doc.setPage(page);
@@ -240,6 +240,10 @@ export async function downloadReportPdf(model: ReportModel): Promise<void> {
       filters: [{ name: "PDF document", extensions: ["pdf"] }],
     });
     if (!path) return; // user cancelled
+
+    // Let a write failure (e.g. a path outside the fs capability scope) reach
+    // the caller. Falling back to doc.save() here would be a silent no-op:
+    // browser downloads cannot start inside the Tauri webview.
     await writeFile(path, new Uint8Array(bytes));
     return;
   }

@@ -1,14 +1,19 @@
 import type { TestResult } from "../../store/ReportContext";
-import { groupResultsByTest } from "./groupResults";
-import { formatReferenceRange } from "./referenceRange";
+import { buildWorkspaceReportVersion } from "../../domain/report-bridge.mjs";
+import {
+  buildReportDocumentModel,
+  buildWorkspaceDocumentConfig,
+} from "../../rendering/index.mjs";
 import { accession, formatReportDate } from "./reportMeta";
 
 /**
- * Single source of truth for what a house-format report *says* and in what
- * order. Both renderers — the on-screen/print DOM (`PrintableReport`) and the
- * downloadable PDF (`reportPdf`) — consume this model, so wording, section
- * order, grouping and labels can only be defined once. Only visual styling
- * lives in each renderer.
+ * House-format *presenter*. It owns the wording of the printed page — brand
+ * copy, labels, sign-off text — and nothing structural.
+ *
+ * All clinical structure comes from the one presentation-neutral document model
+ * (`src/rendering`), which is built from the frozen `resolved_payload`. That is
+ * what keeps a finalized report reproducible: the printed page and the PDF are
+ * both projections of the same immutable model, never of today's catalog.
  */
 
 export interface ReportContent {
@@ -26,6 +31,14 @@ export interface ReportModelInput {
   version: number;
   isFinalized: boolean;
   finalizedAt?: string;
+  issueNumber?: string;
+  issueDate?: string;
+  finalizedBy?: string;
+  amendedAt?: string;
+  amendedBy?: string;
+  amendmentType?: string;
+  amendmentReason?: string;
+  supersedesVersion?: number;
   panelName?: string;
   department?: string;
   reportDate?: string;
@@ -75,8 +88,10 @@ export interface ReportModel {
   authorisationNote: string;
   endOfReport: string;
   footer: { reference: string; disclaimer: string };
-  /** Suggested file name (no extension) for the downloadable PDF. */
+  generatedAt: string;
   fileBaseName: string;
+  /** Catalog version the clinical snapshot was resolved under. */
+  sourceCatalogVersion: string;
 }
 
 const BRAND = {
@@ -88,77 +103,155 @@ const BRAND = {
 
 const DRAFT_NOTICE =
   "Preliminary draft — not for clinical use. Findings are subject to review and may change before the report is finalized.";
-
 const AUTH_NOTE_FINAL =
   "This report has been electronically verified and released. A handwritten signature is not required.";
 const AUTH_NOTE_DRAFT =
   "This preliminary report has not been verified and must not be used for clinical decisions.";
-
 const DISCLAIMER =
   "Computer-generated report for the named patient and referring clinician only.";
-
 const NOT_PROVIDED = "Not provided";
+const DASH = "—";
+
+const NARRATIVE_ROLES = [
+  "clinical-history",
+  "microscopic-findings",
+  "diagnosis",
+] as const;
+
+interface DocumentSectionLike {
+  section_id: string;
+  semantic_role: string;
+  heading?: string;
+  fields: { field_id: string; content: unknown }[];
+}
 
 function isNumeric(value: string): boolean {
   return value.trim() !== "" && !Number.isNaN(Number(value));
 }
 
+function text(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+/** Domain reference shape (low/high or reference_text) to a printable label. */
+function referenceLabel(content: Record<string, unknown>): string {
+  const range = content.reference_range as
+    | { low?: number; high?: number }
+    | undefined;
+
+  if (range) {
+    const bounds = [range.low, range.high].filter(
+      (bound): bound is number => typeof bound === "number"
+    );
+    if (bounds.length > 0) return bounds.join(" – ");
+  }
+
+  const asText = text(content.reference_text);
+  return asText.trim() ? asText : DASH;
+}
+
+/** First field value of the section carrying the given semantic role. */
+function valueForRole(
+  sections: DocumentSectionLike[],
+  role: string
+): string {
+  const section = sections.find(
+    (candidate) => candidate.semantic_role === role
+  );
+  const field = section?.fields[0];
+  return field ? text((field.content as Record<string, unknown>).value) : "";
+}
+
 export function buildReportModel(input: ReportModelInput): ReportModel {
-  const reportNo = accession(input.reportId, input.version);
   const patientSlug =
     input.patientName.trim().replace(/\s+/g, "_").replace(/[^\w-]/g, "") ||
     "Report";
 
-  const groups = groupResultsByTest(input.content.testResults);
-  const resultGroups: ReportResultGroup[] = groups.map((group) => ({
-    key: group.key,
-    testName: group.testName,
-    rows: group.results.map((result) => ({
-      key: `${result.testId}::${result.parameterId}`,
-      name: result.parameterName,
-      value: result.value || NOT_PROVIDED,
-      numeric: isNumeric(result.value),
-      unit: result.unit || "—",
-      reference: formatReferenceRange(result.referenceRange),
-    })),
+  // A draft has no issue identity yet, so it is labelled with a provisional
+  // accession derived from the report id. Once finalized the report prints the
+  // real issue number: per docs/expected-analysis/amendment-presentation.md
+  // (row C) that number is the visible surface change between a report and its
+  // amendment.
+  const reportNo =
+    input.isFinalized && input.issueNumber
+      ? input.issueNumber
+      : accession(input.reportId, input.version);
+
+  // The domain owns what a valid finalized version looks like; the bridge
+  // rebuilds it from the fields the workspace carries. Provenance recorded at
+  // finalization must survive that trip or the version is rejected.
+  const reportVersion = buildWorkspaceReportVersion({
+    reportId: input.reportId ?? "",
+    version: input.version,
+    isFinalized: input.isFinalized,
+    issueNumber: input.issueNumber ?? reportNo,
+    issueDate: input.issueDate,
+    finalizedAt: input.finalizedAt,
+    finalizedBy: input.finalizedBy,
+    amendedAt: input.amendedAt,
+    amendedBy: input.amendedBy,
+    amendmentType: input.amendmentType,
+    amendmentReason: input.amendmentReason,
+    supersedesVersion: input.supersedesVersion,
+    content: input.content,
+  });
+
+  const document = buildReportDocumentModel(
+    reportVersion,
+    buildWorkspaceDocumentConfig(reportVersion)
+  );
+  const sections = document.sections as DocumentSectionLike[];
+
+  const resultGroups: ReportResultGroup[] = sections
+    .filter((section) => section.semantic_role === "clinical-results")
+    .map((section) => ({
+      key: section.section_id,
+      testName: section.heading ?? "",
+      rows: section.fields.map((field) => {
+        const content = field.content as Record<string, unknown>;
+        const value = text(content.value);
+        return {
+          key: field.field_id,
+          name: text(content.display),
+          value: value || NOT_PROVIDED,
+          numeric: isNumeric(value),
+          unit: text(content.unit) || DASH,
+          reference: referenceLabel(content),
+        };
+      }),
+    }));
+
+  const narratives: ReportNarrative[] = NARRATIVE_ROLES.map((role) => ({
+    heading:
+      sections.find((section) => section.semantic_role === role)?.heading ??
+      role,
+    body: valueForRole(sections, role) || NOT_PROVIDED,
+    emphasis: role === "diagnosis",
   }));
 
   return {
     brand: BRAND,
     documentTitle: "Pathology Report",
     reportNo,
-    version: input.version,
+    version: document.report_version.version,
     statusLabel: input.isFinalized ? "Final" : "Draft",
     isFinalized: input.isFinalized,
     draftNotice: input.isFinalized ? null : DRAFT_NOTICE,
     band: [
       { label: "Patient Name", value: input.patientName },
       { label: "Patient ID", value: input.patientCode },
-      { label: "Specimen", value: input.content.specimenType || "Not specified" },
-      { label: "Panel", value: input.panelName || "—" },
-      { label: "Department", value: input.department || "—" },
+      {
+        label: "Specimen",
+        value: valueForRole(sections, "specimen-details") || "Not specified",
+      },
+      { label: "Panel", value: input.panelName || DASH },
+      { label: "Department", value: input.department || DASH },
       { label: "Registered", value: formatReportDate(input.reportDate) },
     ],
     resultsHeading: "Laboratory Results",
     resultGroups,
     showGroupHeadings: resultGroups.length > 1,
-    narratives: [
-      {
-        heading: "Clinical History",
-        body: input.content.clinicalHistory || NOT_PROVIDED,
-        emphasis: false,
-      },
-      {
-        heading: "Microscopic Findings",
-        body: input.content.findings || NOT_PROVIDED,
-        emphasis: false,
-      },
-      {
-        heading: "Diagnosis",
-        body: input.content.diagnosis || NOT_PROVIDED,
-        emphasis: true,
-      },
-    ],
+    narratives,
     signoff: [
       {
         role: "Performed & reported by",
@@ -174,6 +267,8 @@ export function buildReportModel(input: ReportModelInput): ReportModel {
     authorisationNote: input.isFinalized ? AUTH_NOTE_FINAL : AUTH_NOTE_DRAFT,
     endOfReport: "— End of Report —",
     footer: { reference: `${BRAND.name} · ${reportNo}`, disclaimer: DISCLAIMER },
-    fileBaseName: `PathForge_${patientSlug}_${reportNo}`,
+    generatedAt: new Date().toLocaleString(),
+    fileBaseName: `PathForge_${patientSlug}_${reportNo.replace(/[^\w-]/g, "_")}`,
+    sourceCatalogVersion: document.provenance.source_catalog_version,
   };
 }

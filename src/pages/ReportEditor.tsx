@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Save,
   CheckCircle2,
@@ -7,6 +7,8 @@ import {
   Lock,
   Printer,
   Download,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import Swal from "sweetalert2";
 
@@ -51,6 +53,10 @@ function ReportEditor({
 
   const [busy, setBusy] = useState(false);
 
+  // Screen preview of the exact document that prints. Same component, same
+  // canonical model - never a second layout.
+  const [showPreview, setShowPreview] = useState(false);
+
   const { patients } = usePatients();
 
   const foundReport = getReport(reportId);
@@ -80,11 +86,52 @@ function ReportEditor({
     });
   }, [foundReport]);
 
+  const patient = patients.find(
+    (candidate) => candidate.id === foundReport?.patientId
+  );
+
+  // Single source of truth for the report's printable / PDF content. Built here
+  // (before the not-found early return) so the hook order stays stable, and
+  // memoized so unrelated re-renders do not regroup results or hand
+  // PrintableReport a fresh object.
+  const reportModel = useMemo(
+    () =>
+      foundReport
+        ? buildReportModel({
+            patientName: patient?.name ?? "Unknown Patient",
+            patientCode: patient?.patientId ?? "Unknown ID",
+            reportId: foundReport.id,
+            version: foundReport.version,
+            isFinalized: foundReport.status === "finalized",
+            finalizedAt: foundReport.finalizedAt,
+            issueNumber: foundReport.issueNumber,
+            issueDate: foundReport.issueDate,
+            finalizedBy: foundReport.finalizedBy,
+            amendedAt: foundReport.amendedAt,
+            amendedBy: foundReport.amendedBy,
+            amendmentType: foundReport.amendmentType,
+            amendmentReason: foundReport.amendmentReason,
+            supersedesVersion: foundReport.supersedesVersion,
+            panelName: foundReport.testName,
+            department: foundReport.department,
+            reportDate: foundReport.createdAt,
+            content: {
+              specimenType: formData.specimenType,
+              clinicalHistory: formData.clinicalHistory,
+              findings: formData.findings,
+              diagnosis: formData.diagnosis,
+              testResults: formData.testResults,
+            },
+          })
+        : null,
+    [foundReport, patient, formData]
+  );
+
   // ========================================
   // REPORT NOT FOUND
   // ========================================
 
-  if (!foundReport) {
+  if (!foundReport || !reportModel) {
     return (
       <div className="report-not-found">
         <h2>Report not found</h2>
@@ -100,34 +147,10 @@ function ReportEditor({
   }
 
   const report = foundReport;
-
-  const patient = patients.find(
-    (patient) =>
-      patient.id === report.patientId
-  );
+  const model = reportModel;
 
   const isFinalized =
     report.status === "finalized";
-
-  // Single source of truth for the report's printable / PDF content.
-  const reportModel = buildReportModel({
-    patientName: patient?.name ?? "Unknown Patient",
-    patientCode: patient?.patientId ?? "Unknown ID",
-    reportId: report.id,
-    version: report.version,
-    isFinalized,
-    finalizedAt: report.finalizedAt,
-    panelName: report.testName,
-    department: report.department,
-    reportDate: report.createdAt,
-    content: {
-      specimenType: formData.specimenType,
-      clinicalHistory: formData.clinicalHistory,
-      findings: formData.findings,
-      diagnosis: formData.diagnosis,
-      testResults: formData.testResults,
-    },
-  });
 
   // ========================================
   // HANDLE FORM CHANGE
@@ -169,6 +192,19 @@ function ReportEditor({
   // SAVE REPORT
   // ========================================
 
+  /** Report a failed write instead of leaving the clinician to assume success. */
+  function reportWriteFailure(title: string, error: unknown) {
+    console.error(title, error);
+    Swal.fire({
+      icon: "error",
+      title,
+      text:
+        error instanceof Error
+          ? error.message
+          : "The report was not saved. Please try again.",
+    });
+  }
+
   async function saveChanges() {
     if (isFinalized || busy) return;
 
@@ -181,6 +217,9 @@ function ReportEditor({
         diagnosis: formData.diagnosis,
         testResults: formData.testResults,
       });
+    } catch (error) {
+      reportWriteFailure("Could not save the report", error);
+      return;
     } finally {
       setBusy(false);
     }
@@ -213,6 +252,9 @@ function ReportEditor({
         testResults: formData.testResults,
       });
       result = await finalizeReport(report.id);
+    } catch (error) {
+      reportWriteFailure("Could not finalize the report", error);
+      return;
     } finally {
       setBusy(false);
     }
@@ -260,6 +302,9 @@ function ReportEditor({
     let amendment;
     try {
       amendment = await createAmendment(report.id, reason.trim());
+    } catch (error) {
+      reportWriteFailure("Could not create the amendment", error);
+      return;
     } finally {
       setBusy(false);
     }
@@ -297,7 +342,7 @@ function ReportEditor({
   async function handleDownloadPdf() {
     setBusy(true);
     try {
-      await downloadReportPdf(reportModel);
+      await downloadReportPdf(model);
     } catch (error) {
       Swal.fire({
         icon: "error",
@@ -374,6 +419,15 @@ function ReportEditor({
         </div>
 
         <div className="editor-actions">
+
+          <button
+            className={`secondary-button${showPreview ? " is-active" : ""}`}
+            onClick={() => setShowPreview((open) => !open)}
+            aria-pressed={showPreview}
+          >
+            {showPreview ? <EyeOff size={17} /> : <Eye size={17} />}
+            {showPreview ? "Hide Preview" : "Preview"}
+          </button>
 
           <button
             className="secondary-button"
@@ -589,8 +643,24 @@ function ReportEditor({
 
       </div>
 
-      {/* Canonical house-format report layout — same model feeds the PDF. */}
-      <PrintableReport model={reportModel} />
+      {/* One report output node: shown on screen while previewing, and the
+          only thing @media print renders. The PDF projects the same model. */}
+      <div className={`report-output${showPreview ? " is-preview" : ""}`}>
+        {showPreview && (
+          <div className="report-preview-bar print-hide">
+            <span>Report preview — this is exactly what prints.</span>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setShowPreview(false)}
+            >
+              Close
+            </button>
+          </div>
+        )}
+
+        <PrintableReport model={model} />
+      </div>
 
     </div>
   );

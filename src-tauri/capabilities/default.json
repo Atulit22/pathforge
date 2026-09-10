@@ -9,6 +9,15 @@
     "sql:allow-execute",
     "sql:allow-select",
     "dialog:default",
-    "fs:write-files"
+    "fs:write-files",
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOWNLOAD/**" }
+      ]
+    }
   ]
 }

@@ -16,7 +16,12 @@ Print / Save as PDF action. `npm run tauri dev` must run that product surface
 ## Active prototype sequence
 
 1. Keep the runtime and one-command verification green.
-2. Accept pasted or sample report JSON and show validation errors.
+2. Accept fixture-shaped report data through the structured report UI (patient,
+   laboratory test, per-parameter results) and show validation errors. The
+   earlier "pasted or sample report JSON" wording described the retired
+   `scripts/report-app.mjs` surface; the product now uses structured controls
+   (see R-json in requirements/open-questions.md). Fixture JSON remains the
+   authority for domain tests, not a user-facing input mode.
 3. Build the document model from the validated report.
 4. Render one readable house-format preview without hiding clinical fields.
 5. Verify browser printing and Save as PDF behavior.

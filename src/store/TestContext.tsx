@@ -2,9 +2,11 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import Swal from "sweetalert2";
 
 import type {
   LaboratoryTest,
@@ -299,6 +301,34 @@ export function TestProvider({
   const [tests, setTests] =
     useState<LaboratoryTest[]>(initialTests);
 
+  // Mirrors `tests` so mutators derive the next catalog from the latest value
+  // rather than the value captured when the handler was created. Without this,
+  // two edits in the same render batch would drop the first one.
+  const testsRef = useRef<LaboratoryTest[]>(initialTests);
+
+  function commitTests(next: LaboratoryTest[]) {
+    const previous = testsRef.current;
+    testsRef.current = next;
+    setTests(next);
+
+    void saveWorkspaceTests(next).catch((error) => {
+      // The write is transactional, so the stored catalog is still `previous`.
+      // Roll the UI back so it cannot disagree with what is on disk.
+      testsRef.current = previous;
+      setTests(previous);
+
+      console.error("Failed to save laboratory tests:", error);
+      void Swal.fire({
+        icon: "error",
+        title: "Could not save the test catalog",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Your change was reverted. Please try again.",
+      });
+    });
+  }
+
   useEffect(() => {
     let active = true;
 
@@ -308,6 +338,7 @@ export function TestProvider({
         if (!active) return;
 
         if (saved.initialized) {
+          testsRef.current = saved.tests;
           setTests(saved.tests);
         } else {
           await saveWorkspaceTests(initialTests);
@@ -323,23 +354,23 @@ export function TestProvider({
     };
   }, []);
 
-  function replaceTests(next: LaboratoryTest[]) {
-    setTests(next);
-    void saveWorkspaceTests(next).catch((error) => {
-      console.error("Failed to save laboratory tests:", error);
-    });
+  /** Apply an update to the freshest catalog, then persist it. */
+  function replaceTests(
+    update: (previous: LaboratoryTest[]) => LaboratoryTest[]
+  ) {
+    commitTests(update(testsRef.current));
   }
 
   function addTest(test: LaboratoryTest) {
-    replaceTests([...tests, test]);
+    replaceTests((previous) => [...previous, test]);
   }
 
   function updateTest(
     id: string,
     updates: Partial<LaboratoryTest>
   ) {
-    replaceTests(
-      tests.map((test) =>
+    replaceTests((previous) =>
+      previous.map((test) =>
         test.id === id
           ? {
               ...test,
@@ -352,15 +383,17 @@ export function TestProvider({
   }
 
   function deleteTest(id: string) {
-    replaceTests(tests.filter((test) => test.id !== id));
+    replaceTests((previous) =>
+      previous.filter((test) => test.id !== id)
+    );
   }
 
   function addParameter(
     testId: string,
     parameter: TestParameter
   ) {
-    replaceTests(
-      tests.map((test) =>
+    replaceTests((previous) =>
+      previous.map((test) =>
         test.id === testId
           ? {
               ...test,
@@ -380,8 +413,8 @@ export function TestProvider({
     parameterId: string,
     updates: Partial<TestParameter>
   ) {
-    replaceTests(
-      tests.map((test) =>
+    replaceTests((previous) =>
+      previous.map((test) =>
         test.id === testId
           ? {
               ...test,
@@ -405,8 +438,8 @@ export function TestProvider({
     testId: string,
     parameterId: string
   ) {
-    replaceTests(
-      tests.map((test) =>
+    replaceTests((previous) =>
+      previous.map((test) =>
         test.id === testId
           ? {
               ...test,
