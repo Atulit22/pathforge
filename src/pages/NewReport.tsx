@@ -4,8 +4,14 @@ import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 
 import { useReports, type Report, type TestResult } from "../store/ReportContext";
 import { useTests } from "../store/TestContext";
+import { usePatients } from "../store/PatientContext";
 import type { LaboratoryTest } from "../domain/types";
 
+import {
+  buildReportModel,
+  type ReportModel,
+} from "../components/report/reportModel";
+import ReportPreviewModal from "../components/report/ReportPreviewModal";
 import Stepper from "../components/report/wizard/Stepper";
 import PatientStep from "../components/report/wizard/PatientStep";
 import TestSpecimenStep from "../components/report/wizard/TestSpecimenStep";
@@ -34,10 +40,15 @@ function distinct(values: string[]): string[] {
 export default function NewReport({ onOpenReport }: NewReportProps) {
   const { addReport } = useReports();
   const { tests } = useTests();
+  const { getPatient } = usePatients();
 
   const [step, setStep] = useState(0);
   const [furthest, setFurthest] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [draftPreview, setDraftPreview] = useState<{
+    model: ReportModel;
+    reportId: string;
+  } | null>(null);
 
   const [patientId, setPatientId] = useState("");
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
@@ -112,23 +123,48 @@ export default function NewReport({ onOpenReport }: NewReportProps) {
     };
   }
 
+  function modelForDraft(draft: Report): ReportModel {
+    const patient = getPatient(draft.patientId);
+    return buildReportModel({
+      patientName: patient?.name ?? "Unknown Patient",
+      patientCode: patient?.patientId ?? "Unknown ID",
+      reportId: draft.id,
+      version: draft.version,
+      isFinalized: false,
+      panelName: draft.testName,
+      department: draft.department,
+      reportDate: draft.createdAt,
+      content: {
+        specimenType: draft.specimenType,
+        clinicalHistory: draft.clinicalHistory,
+        findings: draft.findings,
+        diagnosis: draft.diagnosis,
+        testResults: draft.testResults,
+      },
+    });
+  }
+
   async function save(proceed: boolean) {
     if (!canSave || saving) return;
     setSaving(true);
     try {
       const draft = await addReport(buildReport());
-      if (proceed && draft) {
+      if (!draft) throw new Error("The report could not be created.");
+
+      if (proceed) {
         onOpenReport(draft.id);
         return;
       }
+
+      // Save as Draft: confirm, then show the draft preview before the editor
+      // (spec §18). Closing the preview opens the actual draft.
       await Swal.fire({
         icon: "success",
-        title: "Draft saved",
-        text: "The report is in your worklist.",
-        timer: 1600,
+        title: "Draft saved successfully",
+        timer: 1200,
         showConfirmButton: false,
       });
-      resetWizard();
+      setDraftPreview({ model: modelForDraft(draft), reportId: draft.id });
     } catch (error) {
       await Swal.fire({
         icon: "error",
@@ -138,16 +174,6 @@ export default function NewReport({ onOpenReport }: NewReportProps) {
     } finally {
       setSaving(false);
     }
-  }
-
-  function resetWizard() {
-    setStep(0);
-    setFurthest(0);
-    setPatientId("");
-    setSelectedTestIds([]);
-    setSpecimenType("");
-    setResults({});
-    setClinical({ clinicalHistory: "", findings: "", diagnosis: "" });
   }
 
   return (
@@ -274,6 +300,18 @@ export default function NewReport({ onOpenReport }: NewReportProps) {
           </div>
         )}
       </div>
+
+      {draftPreview && (
+        <ReportPreviewModal
+          model={draftPreview.model}
+          label="DRAFT PREVIEW"
+          onClose={() => {
+            const { reportId } = draftPreview;
+            setDraftPreview(null);
+            onOpenReport(reportId);
+          }}
+        />
+      )}
     </div>
   );
 }

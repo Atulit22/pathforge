@@ -8,13 +8,13 @@ import {
   Printer,
   Download,
   Eye,
-  EyeOff,
 } from "lucide-react";
 import Swal from "sweetalert2";
 
 import { useReports, type TestResult } from "../store/ReportContext";
 import { usePatients } from "../store/PatientContext";
 import PrintableReport from "../components/report/PrintableReport";
+import ReportPreviewModal from "../components/report/ReportPreviewModal";
 import ResultsTable from "../components/report/ResultsTable";
 import { downloadReportPdf } from "../components/report/reportPdf";
 import { buildReportModel } from "../components/report/reportModel";
@@ -240,6 +240,25 @@ function ReportEditor({
   async function handleFinalize() {
     if (isFinalized || busy) return;
 
+    // Soft confirmation: microscopic findings and/or diagnosis missing (spec §17).
+    const missing: string[] = [];
+    if (!formData.findings.trim()) missing.push("microscopic findings");
+    if (!formData.diagnosis.trim()) missing.push("diagnosis");
+    if (missing.length > 0) {
+      const proceed = await Swal.fire({
+        icon: "warning",
+        title: "Finalize without complete clinical detail?",
+        text: `No ${missing.join(" and/or ")} ${
+          missing.length === 1 ? "has" : "have"
+        } been entered. Do you want to proceed?`,
+        showCancelButton: true,
+        confirmButtonText: "Proceed",
+        cancelButtonText: "Go Back",
+        reverseButtons: true,
+      });
+      if (!proceed.isConfirmed) return;
+    }
+
     setBusy(true);
     let result;
     try {
@@ -270,11 +289,20 @@ function ReportEditor({
       return;
     }
 
-    Swal.fire({
+    // Finalized — let the user choose what happens next (spec §19). Nothing
+    // prints or downloads on its own.
+    const choice = await Swal.fire({
       icon: "success",
-      title: "Report Finalized",
-      text: `Report Version ${report.version} has been finalized.`,
+      title: "Report finalized successfully",
+      text: "What would you like to do?",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Print Report",
+      denyButtonText: "Download PDF",
+      cancelButtonText: "Close",
     });
+    if (choice.isConfirmed) handlePrint();
+    else if (choice.isDenied) await handleDownloadPdf();
   }
 
   // ========================================
@@ -421,12 +449,11 @@ function ReportEditor({
         <div className="editor-actions">
 
           <button
-            className={`secondary-button${showPreview ? " is-active" : ""}`}
-            onClick={() => setShowPreview((open) => !open)}
-            aria-pressed={showPreview}
+            className="secondary-button"
+            onClick={() => setShowPreview(true)}
           >
-            {showPreview ? <EyeOff size={17} /> : <Eye size={17} />}
-            {showPreview ? "Hide Preview" : "Preview"}
+            <Eye size={17} />
+            Preview
           </button>
 
           <button
@@ -643,25 +670,22 @@ function ReportEditor({
 
       </div>
 
-      {/* One report output node: shown on screen while previewing, and the
-          only thing @media print renders. The PDF projects the same model. */}
-      <div className={`report-output${showPreview ? " is-preview" : ""}`}>
-        {showPreview && (
-          <div className="report-preview-bar print-hide">
-            <span>Report preview — this is exactly what prints.</span>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => setShowPreview(false)}
-            >
-              Close
-            </button>
-          </div>
-        )}
-
+      {/* Hidden on screen; the only node @media print renders. The PDF and the
+          preview modal below both project this same canonical model. */}
+      <div className="report-output">
         <PrintableReport model={model} />
       </div>
 
+      {showPreview && (
+        <ReportPreviewModal
+          model={model}
+          label={isFinalized ? "REPORT PREVIEW" : "DRAFT PREVIEW"}
+          onClose={() => setShowPreview(false)}
+          onPrint={handlePrint}
+          onDownloadPdf={handleDownloadPdf}
+          busy={busy}
+        />
+      )}
     </div>
   );
 }
