@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 
 import TopNav, { type Page } from "./components/layout/TopNav";
 
@@ -71,12 +72,30 @@ function App() {
     }
   }
 
+  // Every screen except the dashboard and the report editor (which has its own
+  // "Back to Worklist") gets an explicit way back to the dashboard, since the
+  // header no longer carries page navigation.
+  const showBackToDashboard =
+    !selectedReportId && activePage !== "dashboard";
+
   return (
     <div className="app-shell">
       <TopNav onNavigate={handleNavigate} />
 
       <main className="main-content">
-        <div className="page-content">{renderPage()}</div>
+        <div className="page-content">
+          {showBackToDashboard && (
+            <button
+              type="button"
+              className="back-to-dashboard"
+              onClick={() => handleNavigate("dashboard")}
+            >
+              <ArrowLeft size={16} />
+              Back to Dashboard
+            </button>
+          )}
+          {renderPage()}
+        </div>
       </main>
     </div>
   );
