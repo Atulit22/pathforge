@@ -15,6 +15,21 @@ export async function getDatabase(): Promise<Database> {
   return database;
 }
 
+/** Add `columnDdl` to `table` only when the column is not already present. */
+async function ensureColumn(
+  db: Database,
+  table: string,
+  column: string,
+  columnDdl: string
+): Promise<void> {
+  const columns = await db.select<{ name: string }[]>(
+    `PRAGMA table_info(${table})`
+  );
+  if (!columns.some((entry) => entry.name === column)) {
+    await db.execute(`ALTER TABLE ${table} ADD COLUMN ${columnDdl}`);
+  }
+}
+
 async function initializeDatabase(db: Database): Promise<void> {
   // ================================
   // PATIENTS
@@ -27,9 +42,15 @@ async function initializeDatabase(db: Database): Promise<void> {
       name TEXT NOT NULL,
       age INTEGER,
       gender TEXT,
+      phone TEXT,
+      address TEXT,
       created_at TEXT NOT NULL
     )
   `);
+
+  // Additive migration for databases created before phone/address existed.
+  await ensureColumn(db, "patients", "phone", "phone TEXT");
+  await ensureColumn(db, "patients", "address", "address TEXT");
 
   // ================================
   // REPORTS

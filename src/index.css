@@ -5281,3 +5281,461 @@ button {
     display: none;
   }
 }
+
+/* ============================================================
+   NEW REPORT WIZARD  (UI/UX restructure — spec §4–§14)
+   ============================================================ */
+
+.wizard-page {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.wizard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.wizard-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.wizard-header p {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: #64748b;
+}
+
+/* Stepper */
+.wizard-stepper {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.wizard-step {
+  flex: 1;
+  min-width: 130px;
+}
+
+.wizard-step-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.wizard-step-button:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.wizard-step.is-current .wizard-step-button {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px #eff4ff;
+}
+
+.wizard-step-marker {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.wizard-step.is-current .wizard-step-marker {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.wizard-step.is-done .wizard-step-marker {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.wizard-step-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Panels */
+.wizard-body {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.wizard-panel > h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.wizard-panel-hint {
+  margin: 4px 0 20px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.wizard-field {
+  margin-bottom: 18px;
+}
+
+.wizard-field > label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.wizard-field textarea {
+  width: 100%;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  color: #1e293b;
+  resize: vertical;
+}
+
+.wizard-field-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* Patient step — choice cards */
+.choice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.choice-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  text-align: left;
+  color: #334155;
+}
+
+.choice-card:hover {
+  border-color: #cbd5e1;
+}
+
+.choice-card.is-selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px #eff4ff;
+}
+
+.choice-card span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.choice-card strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.patient-pick-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.patient-pick {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.patient-pick:hover {
+  background: #f8fafc;
+}
+
+.patient-pick.is-selected {
+  border-color: #2563eb;
+  background: #eff4ff;
+}
+
+.patient-pick-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.patient-pick-meta {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.selection-confirm {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 13px;
+}
+
+/* Patient form */
+.patient-form .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.patient-form .form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.patient-form label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.patient-form input,
+.patient-form select,
+.patient-form textarea {
+  width: 100%;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font: inherit;
+  color: #1e293b;
+}
+
+.patient-id-preview {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.patient-id-preview strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.3px;
+}
+
+.patient-id-preview span {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.form-error {
+  margin-top: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+/* Results step */
+.results-block {
+  margin-top: 18px;
+}
+
+.results-block-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.results-block-header h3 {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.results-block-header span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.result-flag {
+  display: inline-flex;
+  min-width: 22px;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.result-flag.is-H {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.result-flag.is-L {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+/* Review step */
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.review-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.review-item span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.review-item strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.review-item em {
+  font-size: 12px;
+  font-style: normal;
+  color: #64748b;
+}
+
+.review-results {
+  margin-top: 16px;
+}
+
+.review-results h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #0f172a;
+}
+
+.results-table.is-readonly td,
+.results-table.is-readonly th {
+  padding: 7px 10px;
+}
+
+.review-narrative {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.review-narrative span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.review-narrative p {
+  margin-top: 3px;
+  font-size: 13px;
+  color: #334155;
+  white-space: pre-wrap;
+}
+
+.test-option {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.test-option-meta {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* Wizard nav */
+.wizard-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.wizard-nav-final {
+  display: flex;
+  gap: 10px;
+}
+
+.wizard-nav .primary-button,
+.wizard-nav .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .choice-row,
+  .review-grid,
+  .patient-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

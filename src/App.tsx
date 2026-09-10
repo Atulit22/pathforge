@@ -55,7 +55,7 @@ function App() {
       case "worklist":
         return <Worklist onSelectReport={handleSelectReport} />;
       case "new-report":
-        return <NewReport />;
+        return <NewReport onOpenReport={handleSelectReport} />;
       case "history":
         return <VersionHistory onSelectReport={handleSelectReport} />;
       case "test-management":
