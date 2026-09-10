@@ -5,6 +5,7 @@ import {
   type NewPatientInput,
 } from "../../store/PatientContext";
 import { sanitizePhone, sanitizeText } from "../../domain/textRules.mjs";
+import { notifySuccess } from "../../lib/dialog";
 
 interface PatientFormProps {
   onSaved: (patientId: string) => void;
@@ -83,6 +84,11 @@ export default function PatientForm({
     setError("");
     try {
       const patient = await addPatient(input);
+      void notifySuccess({
+        title: "Patient created",
+        text: `${patient.name} · ${patient.patientId}`,
+        timer: 1400,
+      });
       onSaved(patient.id);
     } catch (saveError) {
       setError(

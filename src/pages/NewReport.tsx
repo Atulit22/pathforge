@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import Swal from "sweetalert2";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
+
+import { notifyError, notifySuccess } from "../lib/dialog";
 
 import { useReports, type Report, type TestResult } from "../store/ReportContext";
 import { useTests } from "../store/TestContext";
@@ -161,16 +162,10 @@ export default function NewReport({ onOpenReport }: NewReportProps) {
 
       // Save as Draft: confirm, then show the draft preview before the editor
       // (spec §18). Closing the preview opens the actual draft.
-      await Swal.fire({
-        icon: "success",
-        title: "Draft saved successfully",
-        timer: 1200,
-        showConfirmButton: false,
-      });
+      await notifySuccess({ title: "Draft saved", timer: 1200 });
       setDraftPreview({ model: modelForDraft(draft), reportId: draft.id });
     } catch (error) {
-      await Swal.fire({
-        icon: "error",
+      await notifyError({
         title: "Could not save the report",
         text: error instanceof Error ? error.message : String(error),
       });

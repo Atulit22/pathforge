@@ -6,13 +6,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import Swal from "sweetalert2";
-
 import type {
   LaboratoryTest,
   TestParameter,
 } from "../domain/types";
 import { loadWorkspaceTests, saveWorkspaceTests } from "../database/db";
+import { notifyError } from "../lib/dialog";
 
 // ========================================
 // CONTEXT TYPES
@@ -318,8 +317,7 @@ export function TestProvider({
       setTests(previous);
 
       console.error("Failed to save laboratory tests:", error);
-      void Swal.fire({
-        icon: "error",
+      void notifyError({
         title: "Could not save the test catalog",
         text:
           error instanceof Error

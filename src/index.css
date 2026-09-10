@@ -6166,3 +6166,337 @@ button {
   color: #1e293b;
   border-color: #cbd5e1;
 }
+
+/* ============================================================
+   SWEETALERT2 — PathForge dialog theme
+   One theme for every Swal.fire() (see src/lib/dialog.ts).
+   !important is used deliberately: sweetalert2 injects its own
+   stylesheet at runtime, after this file.
+   ============================================================ */
+
+.pf-swal.swal2-container {
+  padding: 0 !important;
+}
+
+.pf-swal-popup.swal2-popup {
+  width: 100% !important;
+  max-width: 440px !important;
+  padding: 24px 24px 20px !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  box-shadow: 0 20px 55px rgba(15, 23, 42, 0.18) !important;
+  display: grid !important;
+  grid-template-columns: auto 1fr !important;
+  column-gap: 16px !important;
+  row-gap: 0 !important;
+  font-family: "Inter", system-ui, sans-serif !important;
+  color: #0f172a !important;
+}
+
+/* close button — always top-right, never triggers an action */
+.pf-swal-close.swal2-close {
+  grid-column: 1 / -1 !important;
+  grid-row: 1 !important;
+  justify-self: end !important;
+  align-self: start !important;
+  width: 30px !important;
+  height: 30px !important;
+  margin: -2px -2px 0 0 !important;
+  border-radius: 8px !important;
+  color: #94a3b8 !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+  transition: background 0.15s ease, color 0.15s ease !important;
+}
+
+.pf-swal-close.swal2-close:hover {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+
+/* icon — small filled circle with a white symbol */
+/* Size via font-size: SweetAlert draws the icon (5em box) and its check/x
+   marks in em, so scaling font-size keeps the internal geometry correct. */
+.pf-swal-icon.swal2-icon {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  font-size: 8.6px !important;
+  width: 5em !important;
+  height: 5em !important;
+  min-height: 0 !important;
+  margin: 2px 0 0 !important;
+  border: 0 !important;
+  align-self: start !important;
+}
+
+.pf-swal-icon.swal2-icon .swal2-icon-content {
+  font-size: 2.6em !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+
+.pf-swal-icon.swal2-success {
+  background: #16a34a !important;
+}
+.pf-swal-icon.swal2-success .swal2-success-ring {
+  border-color: transparent !important;
+}
+.pf-swal-icon.swal2-success [class^="swal2-success-line"] {
+  background-color: #ffffff !important;
+}
+.pf-swal-icon.swal2-success [class^="swal2-success-circular-line"],
+.pf-swal-icon.swal2-success .swal2-success-fix {
+  background: transparent !important;
+}
+.pf-swal-icon.swal2-warning {
+  background: #f59e0b !important;
+  color: #ffffff !important;
+}
+.pf-swal-icon.swal2-error {
+  background: #dc2626 !important;
+}
+.pf-swal-icon.swal2-error [class^="swal2-x-mark-line"] {
+  background-color: #ffffff !important;
+}
+.pf-swal-icon.swal2-info,
+.pf-swal-icon.swal2-question {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+/* title + body */
+.pf-swal-title.swal2-title {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  align-self: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: left !important;
+  font-size: 19px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+}
+
+.pf-swal-html.swal2-html-container {
+  grid-column: 1 / -1 !important;
+  grid-row: 3 !important;
+  margin: 10px 0 0 !important;
+  padding: 0 !important;
+  text-align: left !important;
+  font-size: 13.5px !important;
+  line-height: 1.5 !important;
+  color: #64748b !important;
+}
+
+.pf-swal-lead {
+  margin: 0;
+  color: #64748b;
+}
+
+.pf-swal-list {
+  margin: 4px 0 0;
+  padding-left: 1.15em;
+  color: #475569;
+}
+
+.pf-swal-list li {
+  margin-top: 2px;
+}
+
+/* metadata card */
+.pf-swal-card {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px 14px;
+  margin: 14px 0 2px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.pf-swal-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pf-swal-card dt {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.pf-swal-card dd {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0f172a;
+  overflow-wrap: anywhere;
+}
+
+/* actions + buttons */
+.pf-swal-actions.swal2-actions {
+  grid-column: 1 / -1 !important;
+  grid-row: 4 !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  margin: 20px 0 0 !important;
+  padding-top: 16px !important;
+  border-top: 1px solid #eef2f6 !important;
+}
+
+.pf-swal-btn.swal2-styled,
+.pf-swal-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  min-height: 42px !important;
+  margin: 0 !important;
+  padding: 0 18px !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+  font: 600 13.5px/1 "Inter", system-ui, sans-serif !important;
+  box-shadow: none !important;
+  transition: background 0.15s ease, border-color 0.15s ease !important;
+}
+
+.pf-swal-btn--icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pf-swal-btn--primary {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+.pf-swal-btn--primary:hover {
+  background: #1d4ed8 !important;
+}
+
+.pf-swal-btn--secondary {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
+.pf-swal-btn--secondary:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+}
+
+.pf-swal-btn--ghost {
+  background: transparent !important;
+  color: #64748b !important;
+}
+.pf-swal-btn--ghost:hover {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+
+.pf-swal-btn--danger {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+.pf-swal-btn--danger:hover {
+  background: #b91c1c !important;
+}
+
+.pf-swal-btn:focus-visible {
+  outline: 2px solid #2563eb !important;
+  outline-offset: 2px !important;
+}
+
+/* input (promptText) */
+.pf-swal-popup .swal2-input,
+.pf-swal-popup .swal2-textarea {
+  grid-column: 1 / -1 !important;
+  grid-row: 3 !important;
+  margin: 12px 0 0 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  font-size: 13.5px !important;
+  color: #1e293b !important;
+}
+
+.pf-swal-popup .swal2-input:focus,
+.pf-swal-popup .swal2-textarea:focus {
+  border-color: #2563eb !important;
+}
+
+.pf-swal-popup .swal2-input-label,
+.pf-swal-popup .swal2-validation-message {
+  grid-column: 1 / -1 !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  background: transparent !important;
+  font-size: 12.5px !important;
+}
+
+.pf-swal-popup .swal2-timer-progress-bar {
+  background: #cbd5e1 !important;
+}
+
+/* subtle motion */
+.pf-swal-in {
+  animation: pfSwalIn 0.16s ease-out;
+}
+.pf-swal-out {
+  animation: pfSwalOut 0.12s ease-in forwards;
+}
+.pf-swal-backdrop-in {
+  animation: pfSwalFade 0.16s ease-out;
+}
+.pf-swal-backdrop-out {
+  animation: pfSwalFade 0.12s ease-in reverse forwards;
+}
+
+@keyframes pfSwalIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pfSwalOut {
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+@keyframes pfSwalFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 520px) {
+  .pf-swal-popup.swal2-popup {
+    max-width: calc(100vw - 28px) !important;
+  }
+  .pf-swal-card {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Spinner used in loading buttons (e.g. Finalize) */
+.spin {
+  animation: pfSpin 0.8s linear infinite;
+}
+@keyframes pfSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}

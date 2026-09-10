@@ -8,8 +8,8 @@ import {
   Printer,
   Download,
   Eye,
+  Loader2,
 } from "lucide-react";
-import Swal from "sweetalert2";
 
 import { useReports, type TestResult } from "../store/ReportContext";
 import { usePatients } from "../store/PatientContext";
@@ -19,25 +19,20 @@ import ReportPreviewModal from "../components/report/ReportPreviewModal";
 import ResultsTable from "../components/report/ResultsTable";
 import { downloadReportPdf } from "../components/report/reportPdf";
 import { buildReportModel } from "../components/report/reportModel";
+import { formatReportDate } from "../components/report/reportMeta";
+import {
+  confirmAction,
+  notifyError,
+  notifyErrorList,
+  notifySuccess,
+  promptText,
+  showFinalizedDialog,
+} from "../lib/dialog";
 
 interface ReportEditorProps {
   reportId: string;
   onBack: () => void;
   onOpenReport: (reportId: string) => void;
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[character] ?? character
-  );
 }
 
 function ReportEditor({
@@ -200,8 +195,7 @@ function ReportEditor({
   /** Report a failed write instead of leaving the clinician to assume success. */
   function reportWriteFailure(title: string, error: unknown) {
     console.error(title, error);
-    Swal.fire({
-      icon: "error",
+    void notifyError({
       title,
       text:
         error instanceof Error
@@ -229,12 +223,10 @@ function ReportEditor({
       setBusy(false);
     }
 
-    Swal.fire({
-      icon: "success",
-      title: "Changes Saved",
-      text: "Report changes have been saved successfully.",
-      timer: 1800,
-      showConfirmButton: false,
+    void notifySuccess({
+      title: "Changes saved",
+      text: "Report changes have been saved.",
+      timer: 1600,
     });
   }
 
@@ -250,18 +242,16 @@ function ReportEditor({
     if (!formData.findings.trim()) missing.push("microscopic findings");
     if (!formData.diagnosis.trim()) missing.push("diagnosis");
     if (missing.length > 0) {
-      const proceed = await Swal.fire({
+      const proceed = await confirmAction({
         icon: "warning",
         title: "Finalize without complete clinical detail?",
         text: `No ${missing.join(" and/or ")} ${
           missing.length === 1 ? "has" : "have"
         } been entered. Do you want to proceed?`,
-        showCancelButton: true,
-        confirmButtonText: "Proceed",
-        cancelButtonText: "Go Back",
-        reverseButtons: true,
+        confirmText: "Proceed",
+        cancelText: "Go back",
       });
-      if (!proceed.isConfirmed) return;
+      if (!proceed) return;
     }
 
     setBusy(true);
@@ -284,30 +274,23 @@ function ReportEditor({
     }
 
     if (!result.valid) {
-      Swal.fire({
-        icon: "error",
-        title: "Cannot finalize this report",
-        html: `<ul style="text-align:left;margin:0;padding-left:1.2em">${result.errors
-          .map((issue) => `<li>${escapeHtml(issue.message)}</li>`)
-          .join("")}</ul>`,
-      });
+      void notifyErrorList(
+        "Cannot finalize this report",
+        result.errors.map((issue) => issue.message)
+      );
       return;
     }
 
     // Finalized — let the user choose what happens next (spec §19). Nothing
-    // prints or downloads on its own.
-    const choice = await Swal.fire({
-      icon: "success",
-      title: "Report finalized successfully",
-      text: "What would you like to do?",
-      showDenyButton: true,
-      showCancelButton: true,
-      confirmButtonText: "Print Report",
-      denyButtonText: "Download PDF",
-      cancelButtonText: "Close",
+    // prints or downloads on its own; the X just closes.
+    const finalized = getReport(report.id);
+    const choice = await showFinalizedDialog({
+      reportNo: finalized?.issueNumber ?? model.reportNo,
+      version: finalized?.version ?? report.version,
+      finalizedOn: formatReportDate(finalized?.finalizedAt),
     });
-    if (choice.isConfirmed) handlePrint();
-    else if (choice.isDenied) await handleDownloadPdf();
+    if (choice === "download") await handleDownloadPdf();
+    else if (choice === "print") handlePrint();
   }
 
   // ========================================
@@ -317,24 +300,21 @@ function ReportEditor({
   async function handleCreateAmendment() {
     if (!isFinalized || busy) return;
 
-    const { value: reason } = await Swal.fire<string>({
-      icon: "question",
-      title: "Create Amendment",
-      input: "textarea",
-      inputLabel: "Reason for amendment",
-      inputPlaceholder: "Describe why this version is being corrected…",
-      inputValidator: (value) =>
-        value && value.trim() ? undefined : "An amendment reason is required.",
-      showCancelButton: true,
-      confirmButtonText: "Create amendment",
+    const reason = await promptText({
+      title: "Create amendment",
+      label: "Reason for amendment",
+      placeholder: "Describe why this version is being corrected…",
+      confirmText: "Create amendment",
+      multiline: true,
+      requiredMessage: "An amendment reason is required.",
     });
 
-    if (!reason || !reason.trim()) return;
+    if (!reason) return;
 
     setBusy(true);
     let amendment;
     try {
-      amendment = await createAmendment(report.id, reason.trim());
+      amendment = await createAmendment(report.id, reason);
     } catch (error) {
       reportWriteFailure("Could not create the amendment", error);
       return;
@@ -343,18 +323,17 @@ function ReportEditor({
     }
 
     if (!amendment) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Could not create amendment.",
+      void notifyError({
+        title: "Could not create amendment",
+        text: "Please try again.",
       });
       return;
     }
 
-    Swal.fire({
-      icon: "success",
-      title: "Amendment Created",
+    await notifySuccess({
+      title: "Amendment created",
       text: `Version ${amendment.version} created as a draft amendment.`,
+      timer: 1600,
     });
 
     onOpenReport(amendment.id);
@@ -377,8 +356,7 @@ function ReportEditor({
     try {
       await downloadReportPdf(model);
     } catch (error) {
-      Swal.fire({
-        icon: "error",
+      void notifyError({
         title: "Could not create the PDF",
         text: error instanceof Error ? error.message : String(error),
       });
@@ -495,17 +473,20 @@ function ReportEditor({
                 onClick={handleFinalize}
                 disabled={busy}
               >
-                <CheckCircle2 size={17} />
-                Finalize Report
+                {busy ? (
+                  <Loader2 size={17} className="spin" />
+                ) : (
+                  <CheckCircle2 size={17} />
+                )}
+                {busy ? "Finalizing…" : "Finalize Report"}
               </button>
 
             </>
           ) : (
             <button
               className="primary-button"
-              onClick={
-                handleCreateAmendment
-              }
+              onClick={handleCreateAmendment}
+              disabled={busy}
             >
               <GitBranchPlus size={17} />
               Create Amendment

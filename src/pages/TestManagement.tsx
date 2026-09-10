@@ -1,6 +1,5 @@
 import { useTests } from "../store/TestContext";
 import { useMemo, useState } from "react";
-import Swal from "sweetalert2";
 import {
   Plus,
   Trash2,
@@ -15,6 +14,7 @@ import { formatReferenceRange } from "../components/report/referenceRange";
 import AddTestForm from "../components/tests/AddTestForm";
 import AddParameterForm from "../components/tests/AddParameterForm";
 import { sanitizeText } from "../domain/textRules.mjs";
+import { confirmDestructive, notifySuccess, notifyWarning } from "../lib/dialog";
 
 /** Approved clinical text for test / parameter / department / unit names. */
 const cleanName = (value: string) => sanitizeText(value, "general").trim();
@@ -121,7 +121,7 @@ export default function TestManagement() {
       !newTest.name.trim() ||
       !newTest.department.trim()
     ) {
-      Swal.fire("Please enter a test name and department.");
+      void notifyWarning({ title: "Missing details", text: "Enter a test name and department." });
       return;
     }
 
@@ -150,7 +150,7 @@ export default function TestManagement() {
 
     setShowAddTest(false);
 
-    Swal.fire("Laboratory test added successfully.");
+    void notifySuccess({ title: "Test added", timer: 1400 });
   }
 
   function startEditTest(test: LaboratoryTest) {
@@ -168,9 +168,10 @@ export default function TestManagement() {
       !editTest.name.trim() ||
       !editTest.department.trim()
     ) {
-      Swal.fire(
-        "Test name and department are required."
-      );
+      void notifyWarning({
+        title: "Missing details",
+        text: "Test name and department are required.",
+      });
       return;
     }
 
@@ -188,22 +189,16 @@ export default function TestManagement() {
     setEditingTestId(null);
   }
 
-  function handleDeleteTest(
-    test: LaboratoryTest
-  ) {
-    const confirmed = window.confirm(
-      `Delete "${test.name}" and all its parameters?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
+  async function handleDeleteTest(test: LaboratoryTest) {
+    const confirmed = await confirmDestructive({
+      title: "Delete this test?",
+      text: `"${test.name}" and all of its parameters will be removed.`,
+      confirmText: "Delete test",
+    });
+    if (!confirmed) return;
 
     deleteTest(test.id);
-
-    setExpandedTests((previous) =>
-      previous.filter((id) => id !== test.id)
-    );
+    setExpandedTests((previous) => previous.filter((id) => id !== test.id));
   }
 
   // ========================================
@@ -223,7 +218,7 @@ export default function TestManagement() {
 
   function handleAddParameter(testId: string) {
     if (!newParameter.name.trim()) {
-      Swal.fire("Please enter a parameter name.");
+      void notifyWarning({ title: "Missing details", text: "Enter a parameter name." });
       return;
     }
 
@@ -314,7 +309,7 @@ export default function TestManagement() {
     if (
       !editParameterData.name.trim()
     ) {
-      Swal.fire("Parameter name is required.");
+      void notifyWarning({ title: "Missing details", text: "Parameter name is required." });
       return;
     }
 
@@ -348,17 +343,16 @@ export default function TestManagement() {
     setEditingParameter(null);
   }
 
-  function handleDeleteParameter(
+  async function handleDeleteParameter(
     testId: string,
     parameter: TestParameter
   ) {
-    const confirmed = window.confirm(
-      `Delete parameter "${parameter.name}"?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
+    const confirmed = await confirmDestructive({
+      title: "Delete this parameter?",
+      text: `"${parameter.name}" will be removed from this test.`,
+      confirmText: "Delete parameter",
+    });
+    if (!confirmed) return;
 
     deleteParameter(
       testId,
