@@ -11,17 +11,12 @@ import {
   Stethoscope,
   ArrowRight,
   UserPlus,
-  Globe,
 } from "lucide-react";
 
 import { useAuth } from "../store/AuthContext";
 
 export default function LoginPage() {
-  const {
-    login,
-    signup,
-    loginWithGoogle,
-  } = useAuth();
+  const { login, signup } = useAuth();
 
   const [isSignUp, setIsSignUp] =
     useState(false);
@@ -86,24 +81,6 @@ export default function LoginPage() {
           : isSignUp
             ? "Could not create your account."
             : "Invalid email or password.";
-
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleGoogleLogin() {
-    setError("");
-    setLoading(true);
-
-    try {
-      await loginWithGoogle();
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Google sign in failed.";
 
       setError(message);
     } finally {
@@ -327,37 +304,6 @@ export default function LoginPage() {
             </button>
 
           </form>
-
-
-          {/* Divider */}
-
-          <div className="login-divider">
-
-            <span />
-
-            <p>OR</p>
-
-            <span />
-
-          </div>
-
-
-          {/* Google Login */}
-
-          <button
-            type="button"
-            className="google-login-button"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-          >
-
-            <Globe size={19} />
-
-            <span>
-              Continue with Google
-            </span>
-
-          </button>
 
 
           {/* Toggle Sign In / Sign Up */}

@@ -39,8 +39,6 @@ interface AuthContextType {
     password: string
   ) => Promise<void>;
 
-  loginWithGoogle: () => Promise<void>;
-
   logout: () => Promise<void>;
 }
 
@@ -422,53 +420,6 @@ export function AuthProvider({
 
 
   /* =========================================
-     GOOGLE LOGIN
-  ========================================= */
-
-  async function loginWithGoogle(): Promise<void> {
-
-    const {
-      data,
-      error,
-    } = await supabase.auth.signInWithOAuth({
-
-      provider: "google",
-
-      options: {
-
-        /*
-          After successful Google login,
-          return to the configured app URL.
-        */
-
-        redirectTo: appUrl,
-
-      },
-
-    });
-
-
-    if (error) {
-
-      throw new Error(
-        error.message
-      );
-
-    }
-
-
-    if (!data?.url) {
-
-      throw new Error(
-        "Could not start Google sign in."
-      );
-
-    }
-
-  }
-
-
-  /* =========================================
      LOGOUT
   ========================================= */
 
@@ -575,8 +526,6 @@ export function AuthProvider({
     login,
 
     signup,
-
-    loginWithGoogle,
 
     logout,
 

@@ -7,6 +7,8 @@ import PatientForm from "../../patients/PatientForm";
 interface PatientStepProps {
   selectedPatientId: string;
   onSelect: (patientId: string) => void;
+  /** Move to the next step (Test & specimen). */
+  onAdvance: () => void;
 }
 
 type Mode = "existing" | "new";
@@ -14,6 +16,7 @@ type Mode = "existing" | "new";
 export default function PatientStep({
   selectedPatientId,
   onSelect,
+  onAdvance,
 }: PatientStepProps) {
   const { patients } = usePatients();
   const [mode, setMode] = useState<Mode>(
@@ -122,8 +125,10 @@ export default function PatientStep({
           <PatientForm
             submitLabel="Save patient & continue"
             onSaved={(patientId) => {
+              // A freshly registered patient goes straight into the report
+              // (spec: "directly redirected to the report making page").
               onSelect(patientId);
-              setMode("existing");
+              onAdvance();
             }}
           />
         </div>

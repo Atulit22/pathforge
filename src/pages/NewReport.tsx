@@ -214,6 +214,7 @@ export default function NewReport({ onOpenReport }: NewReportProps) {
               setPatientId(id);
               setFurthest((current) => Math.max(current, 1));
             }}
+            onAdvance={() => goTo(1)}
           />
         )}
 
