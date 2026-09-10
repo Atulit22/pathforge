@@ -4855,40 +4855,68 @@ button {
 
 @media print {
 
-  /* ---- hide the application shell ---- */
-
-  .sidebar,
-  .app-header,
-  .header,
-  .editor-topbar,
-  .print-hide,
-  .report-editor-card,
-  button,
-  nav {
-    display: none !important;
-  }
-
   html,
   body {
     width: 100% !important;
     height: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #1a1a1a !important;
+    overflow: visible !important;
   }
 
+  /* ---- collapse the app shell so the report is the only flowing content ----
+     The shell normally pins itself to 100vh with overflow:hidden; left as-is
+     that clips the printed report to a single page (or to nothing). These
+     ancestors must stay displayed — the report lives inside them — but they
+     must not constrain height, scroll, or padding. */
+  .app-shell,
+  .main-content,
+  .main-content > .page-content,
+  .page-content,
+  .report-editor-page {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* ---- hide every non-report element ---- */
+  .top-nav,
+  .editor-topbar,
+  .report-editor-card,
+  .back-to-dashboard,
+  .preview-modal-backdrop,
+  .wizard-page,
+  .print-hide,
+  .swal2-container,
+  button,
+  nav,
+  input,
+  textarea,
+  select {
+    display: none !important;
+  }
+
+  /* Belt-and-braces: if any chrome above was missed, hide it and reveal only
+     the report subtree. */
   body * {
     visibility: hidden;
   }
 
+  .report-output,
+  .report-output *,
   .print-report,
   .print-report * {
-    visibility: visible;
+    visibility: visible !important;
   }
 
-  .report-output,
-  .report-output.is-preview {
+  .report-output {
     display: block !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -4896,20 +4924,18 @@ button {
     border-radius: 0 !important;
   }
 
-  /* ---- report canvas ---- */
-
+  /* ---- report canvas: a normal in-flow block so it paginates ---- */
   .print-report {
     display: block !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: static !important;
     box-sizing: border-box !important;
-    width: 100% !important;
+    width: auto !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #1a1a1a !important;
+    box-shadow: none !important;
     font-family: Georgia, "Times New Roman", serif !important;
     font-size: 10.5pt !important;
     line-height: 1.5 !important;
@@ -4920,13 +4946,6 @@ button {
   .print-report > * {
     position: relative;
     z-index: 1;
-  }
-
-
-  input,
-  textarea,
-  select {
-    display: none !important;
   }
 
 } /* ← CLOSES @media print */

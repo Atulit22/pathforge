@@ -128,6 +128,9 @@ export default function NewReport({ onOpenReport }: NewReportProps) {
     return buildReportModel({
       patientName: patient?.name ?? "Unknown Patient",
       patientCode: patient?.patientId ?? "Unknown ID",
+      patientAge: patient?.age,
+      patientSex: patient?.gender,
+      patientPhone: patient?.phone,
       reportId: draft.id,
       version: draft.version,
       isFinalized: false,

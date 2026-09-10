@@ -100,6 +100,9 @@ function ReportEditor({
         ? buildReportModel({
             patientName: patient?.name ?? "Unknown Patient",
             patientCode: patient?.patientId ?? "Unknown ID",
+            patientAge: patient?.age,
+            patientSex: patient?.gender,
+            patientPhone: patient?.phone,
             reportId: foundReport.id,
             version: foundReport.version,
             isFinalized: foundReport.status === "finalized",

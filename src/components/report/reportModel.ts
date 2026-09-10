@@ -28,6 +28,9 @@ export interface ReportContent {
 export interface ReportModelInput {
   patientName: string;
   patientCode: string;
+  patientAge?: number | string;
+  patientSex?: string;
+  patientPhone?: string;
   reportId?: string;
   version: number;
   isFinalized: boolean;
@@ -251,12 +254,22 @@ export function buildReportModel(input: ReportModelInput): ReportModel {
       { label: "Patient Name", value: input.patientName },
       { label: "Patient ID", value: input.patientCode },
       {
+        label: "Age",
+        value:
+          input.patientAge !== undefined && `${input.patientAge}`.trim() !== ""
+            ? `${input.patientAge}`
+            : DASH,
+      },
+      { label: "Sex", value: input.patientSex?.trim() || DASH },
+      { label: "Phone", value: input.patientPhone?.trim() || DASH },
+      { label: "Test(s)", value: input.panelName || DASH },
+      {
         label: "Specimen",
         value: valueForRole(sections, "specimen-details") || "Not specified",
       },
-      { label: "Panel", value: input.panelName || DASH },
       { label: "Department", value: input.department || DASH },
       { label: "Registered", value: formatReportDate(input.reportDate) },
+      { label: "Report No.", value: reportNo },
     ],
     resultsHeading: "Laboratory Results",
     resultGroups,
